@@ -35,6 +35,10 @@ export const useBle = (): UseBleReturn => {
   );
   const [showDeviceModal, setShowDeviceModal] = useState(false);
 
+  const serviceUUIDRef = useRef<string | null>(null);
+  const characteristicUUIDRef = useRef<string | null>(null);
+  const charWriteWithResponseRef = useRef<boolean | null>(null);
+
   const scanTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -169,6 +173,7 @@ export const useBle = (): UseBleReturn => {
 
         let foundService: string | null = null;
         let foundChar: string | null = null;
+        let writeWithResponse: boolean | null = null;
         try {
           const services = await discovered.services();
           for (const service of services) {
@@ -180,6 +185,7 @@ export const useBle = (): UseBleReturn => {
               ) {
                 foundService = service.uuid;
                 foundChar = char.uuid;
+                writeWithResponse = char.isWritableWithResponse;
                 break;
               }
             }
@@ -187,6 +193,9 @@ export const useBle = (): UseBleReturn => {
           }
         } catch {}
 
+        serviceUUIDRef.current = foundService;
+        characteristicUUIDRef.current = foundChar;
+        charWriteWithResponseRef.current = writeWithResponse;
         setServiceUUID(foundService);
         setCharacteristicUUID(foundChar);
         setShowDeviceModal(false);
@@ -215,6 +224,9 @@ export const useBle = (): UseBleReturn => {
     setConnectedDeviceId(null);
     setServiceUUID(null);
     setCharacteristicUUID(null);
+    serviceUUIDRef.current = null;
+    characteristicUUIDRef.current = null;
+    charWriteWithResponseRef.current = null;
     if (scanTimeout.current) clearTimeout(scanTimeout.current);
     if (showAlert) {
       Alert.alert("Disconnected", "Device has been disconnected.");
@@ -224,41 +236,86 @@ export const useBle = (): UseBleReturn => {
   const disconnectDevice = useCallback(async () => {
     if (device) {
       try {
-        if (serviceUUID && characteristicUUID) {
+        if (serviceUUIDRef.current && characteristicUUIDRef.current) {
           try {
             await device.writeCharacteristicWithResponseForService(
-              serviceUUID,
-              characteristicUUID,
+              serviceUUIDRef.current,
+              characteristicUUIDRef.current,
               btoa("S")
             );
-          } catch (e) {}
+          } catch {}
         }
         await device.cancelConnection();
       } catch {}
     }
     internalReset(true);
-  }, [device, serviceUUID, characteristicUUID, internalReset]);
+  }, [device, internalReset]);
+
+  const ensureWritableCharacteristic = useCallback(async () => {
+    if (
+      device &&
+      serviceUUIDRef.current &&
+      characteristicUUIDRef.current &&
+      charWriteWithResponseRef.current !== null
+    ) {
+      return true;
+    }
+    if (!device) return false;
+    try {
+      const services = await device.services();
+      for (const service of services) {
+        const characteristics = await service.characteristics();
+        for (const char of characteristics) {
+          if (char.isWritableWithResponse || char.isWritableWithoutResponse) {
+            serviceUUIDRef.current = service.uuid;
+            characteristicUUIDRef.current = char.uuid;
+            charWriteWithResponseRef.current = char.isWritableWithResponse;
+            setServiceUUID(service.uuid);
+            setCharacteristicUUID(char.uuid);
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Re-discovery failed", e);
+    }
+    return false;
+  }, [device]);
 
   const sendCommand = useCallback(
     async (command: string) => {
-      if (!device || !serviceUUID || !characteristicUUID) {
+      const ready = await ensureWritableCharacteristic();
+      if (
+        !ready ||
+        !device ||
+        !serviceUUIDRef.current ||
+        !characteristicUUIDRef.current
+      ) {
         Alert.alert(
           "Not connected to any BLE device or writable characteristic."
         );
         return;
       }
       try {
-        await device.writeCharacteristicWithResponseForService(
-          serviceUUID,
-          characteristicUUID,
-          btoa(command)
-        );
-        console.log(`Sent: ${command}`);
+        if (charWriteWithResponseRef.current) {
+          await device.writeCharacteristicWithResponseForService(
+            serviceUUIDRef.current,
+            characteristicUUIDRef.current,
+            btoa(command)
+          );
+        } else {
+          await device.writeCharacteristicWithoutResponseForService(
+            serviceUUIDRef.current,
+            characteristicUUIDRef.current,
+            btoa(command)
+          );
+        }
+        console.log(`BLE Sent: ${command}`);
       } catch (err) {
         console.error("Send error", err);
       }
     },
-    [device, serviceUUID, characteristicUUID]
+    [device, ensureWritableCharacteristic]
   );
 
   const resetBleState = useCallback(
@@ -270,10 +327,10 @@ export const useBle = (): UseBleReturn => {
     if (!device) return;
     const sub = device.onDisconnected(async () => {
       try {
-        if (serviceUUID && characteristicUUID) {
+        if (serviceUUIDRef.current && characteristicUUIDRef.current) {
           await device.writeCharacteristicWithResponseForService(
-            serviceUUID,
-            characteristicUUID,
+            serviceUUIDRef.current,
+            characteristicUUIDRef.current,
             btoa("S")
           );
         }
@@ -285,7 +342,7 @@ export const useBle = (): UseBleReturn => {
         sub.remove();
       } catch {}
     };
-  }, [device, serviceUUID, characteristicUUID, internalReset]);
+  }, [device, internalReset]);
 
   return {
     device,
