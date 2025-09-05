@@ -21,6 +21,7 @@ export interface UseDrivingControlsReturn {
   handleDecelerate: () => void;
   handleBrake: () => void;
   handlePedalRelease: () => void;
+  resetDrivingState: () => void;
 }
 
 export const useDrivingControls = ({
@@ -39,7 +40,7 @@ export const useDrivingControls = ({
   const lastDriveMode = useRef<DriveMode>("stopped");
   const lastSteeringAngle = useRef<number>(0);
 
-  const STEERING_THRESHOLD = 10; // Reduced threshold for more sensitive steering
+  const STEERING_THRESHOLD = 10;
 
   const handleSteeringChange = useCallback(
     (angle: number) => {
@@ -168,6 +169,16 @@ export const useDrivingControls = ({
     }
   }, [driveMode, commandMap, sendCommand]);
 
+  const resetDrivingState = useCallback(() => {
+    setSpeed(0);
+    setDriveMode("stopped");
+    setSteeringDirection("center");
+    setPedalPressed(false);
+    lastDriveMode.current = "stopped";
+    lastSteeringDirection.current = "center";
+    lastSteeringAngle.current = 0;
+  }, []);
+
   return {
     speed,
     setSpeed,
@@ -179,5 +190,6 @@ export const useDrivingControls = ({
     handleDecelerate,
     handleBrake,
     handlePedalRelease,
+    resetDrivingState,
   };
 };

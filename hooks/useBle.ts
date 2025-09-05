@@ -18,6 +18,7 @@ export interface UseBleReturn {
   connectToDevice: (d: Device) => Promise<void>;
   disconnectDevice: () => Promise<void>;
   sendCommand: (cmd: string) => Promise<void>;
+  resetBleState: () => void;
 }
 
 export const useBle = (): UseBleReturn => {
@@ -209,19 +210,34 @@ export const useBle = (): UseBleReturn => {
     [stopScan]
   );
 
-  const disconnectDevice = useCallback(async () => {
-    if (device) {
-      try {
-        await device.cancelConnection();
-      } catch {}
-    }
+  const internalReset = useCallback((showAlert: boolean) => {
     setDevice(null);
     setConnectedDeviceId(null);
     setServiceUUID(null);
     setCharacteristicUUID(null);
     if (scanTimeout.current) clearTimeout(scanTimeout.current);
-    Alert.alert("Disconnected", "Device has been disconnected.");
-  }, [device]);
+    if (showAlert) {
+      Alert.alert("Disconnected", "Device has been disconnected.");
+    }
+  }, []);
+
+  const disconnectDevice = useCallback(async () => {
+    if (device) {
+      try {
+        if (serviceUUID && characteristicUUID) {
+          try {
+            await device.writeCharacteristicWithResponseForService(
+              serviceUUID,
+              characteristicUUID,
+              btoa("S")
+            );
+          } catch (e) {}
+        }
+        await device.cancelConnection();
+      } catch {}
+    }
+    internalReset(true);
+  }, [device, serviceUUID, characteristicUUID, internalReset]);
 
   const sendCommand = useCallback(
     async (command: string) => {
@@ -245,6 +261,32 @@ export const useBle = (): UseBleReturn => {
     [device, serviceUUID, characteristicUUID]
   );
 
+  const resetBleState = useCallback(
+    () => internalReset(false),
+    [internalReset]
+  );
+
+  useEffect(() => {
+    if (!device) return;
+    const sub = device.onDisconnected(async () => {
+      try {
+        if (serviceUUID && characteristicUUID) {
+          await device.writeCharacteristicWithResponseForService(
+            serviceUUID,
+            characteristicUUID,
+            btoa("S")
+          );
+        }
+      } catch {}
+      internalReset(false);
+    });
+    return () => {
+      try {
+        sub.remove();
+      } catch {}
+    };
+  }, [device, serviceUUID, characteristicUUID, internalReset]);
+
   return {
     device,
     devicesMap,
@@ -257,5 +299,6 @@ export const useBle = (): UseBleReturn => {
     connectToDevice,
     disconnectDevice,
     sendCommand,
+    resetBleState,
   };
 };

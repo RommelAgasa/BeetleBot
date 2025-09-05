@@ -64,8 +64,6 @@ export default function App() {
 
   // Speed related configuration (max speed etc.)
   const [maxSpeed, setMaxSpeed] = useState<number>(60);
-  const [turnSpeed, setTurnSpeed] = useState<number>(50);
-  const [speedStep, setSpeedStep] = useState<number>(10);
 
   // Driving controls hook (provides speed, driveMode, steering handlers, etc.)
   const {
@@ -78,23 +76,37 @@ export default function App() {
     handleDecelerate,
     handleBrake,
     handlePedalRelease,
+    resetDrivingState,
   } = useDrivingControls({
     sendCommand,
     commandMap,
     maxSpeed,
-    speedStep,
+    speedStep: 10,
   });
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
-  // Reset speed & send '/' after connection
+  // On device connect set baseline commands and speed (default 60)
   useEffect(() => {
     if (device) {
       sendCommand("/");
+      sendCommand(`MAX:${maxSpeed}`);
       setSpeed(0);
     }
-  }, [device, sendCommand, setSpeed]);
+  }, [device, sendCommand, setSpeed, maxSpeed]);
+
+  // On initial launch ensure UI speed shows 60
+  useEffect(() => {
+    setSpeed(60);
+  }, []);
+
+  // Reset driving state when BLE connection is lost
+  useEffect(() => {
+    if (!device) {
+      resetDrivingState();
+    }
+  }, [device, resetDrivingState]);
 
   // Orientation lock & initial alert
   useEffect(() => {
@@ -124,11 +136,11 @@ export default function App() {
   };
 
   const saveAdvancedSettings = () => {
+    const clamped = Math.min(100, Math.max(0, maxSpeed || 0));
+    if (clamped !== maxSpeed) setMaxSpeed(clamped);
     const updated = updateEditMapDiagonals(editMap);
     setCommandMap(updated);
-    sendCommand(`MAX:${maxSpeed}`);
-    sendCommand(`TURN:${turnSpeed}`);
-    sendCommand(`STEP:${speedStep}`);
+    sendCommand(`MAX:${clamped}`);
     setShowSettings(false);
   };
 
@@ -431,7 +443,7 @@ export default function App() {
                       <Text style={{ fontWeight: "bold" }}>
                         Advanced Settings:
                       </Text>
-                      {"\n"}• Change Speed, Turn Speed, and Speed Step (+/-).
+                      {"\n"}• Change Max Speed and remap commands.
                       {"\n"}• Remap controller commands for each control button.
                       {"\n\n"}
                       <Text style={{ fontWeight: "bold" }}>Saving:</Text> After
@@ -463,54 +475,26 @@ export default function App() {
                         <Text
                           style={{ color: "#888", fontSize: 12, marginLeft: 8 }}
                         >
-                          (Max: 255)
+                          (Max: 100)
                         </Text>
                       </View>
                       <TextInput
                         style={styles.commandInput}
                         keyboardType="numeric"
                         value={String(maxSpeed)}
-                        onChangeText={(v) =>
-                          setMaxSpeed(Number(v.replace(/[^0-9]/g, "")))
-                        }
+                        onChangeText={(v) => {
+                          const num = Number(v.replace(/[^0-9]/g, ""));
+                          if (isNaN(num)) {
+                            setMaxSpeed(0);
+                            return;
+                          }
+                          const clamped = Math.min(100, Math.max(0, num));
+                          setMaxSpeed(clamped);
+                        }}
                         maxLength={3}
                       />
                     </View>
-                    <View style={{ marginBottom: 12 }}>
-                      <View
-                        style={{ flexDirection: "row", alignItems: "center" }}
-                      >
-                        <Text style={{ fontWeight: "bold" }}>Turn Speed</Text>
-                        <Text
-                          style={{ color: "#888", fontSize: 12, marginLeft: 8 }}
-                        >
-                          (Max: 255)
-                        </Text>
-                      </View>
-                      <TextInput
-                        style={styles.commandInput}
-                        keyboardType="numeric"
-                        value={String(turnSpeed)}
-                        onChangeText={(v) =>
-                          setTurnSpeed(Number(v.replace(/[^0-9]/g, "")))
-                        }
-                        maxLength={3}
-                      />
-                    </View>
-                    <View style={{ marginBottom: 12 }}>
-                      <Text style={{ fontWeight: "bold" }}>
-                        Speed Step (+/-)
-                      </Text>
-                      <TextInput
-                        style={styles.commandInput}
-                        keyboardType="numeric"
-                        value={String(speedStep)}
-                        onChangeText={(v) =>
-                          setSpeedStep(Number(v.replace(/[^0-9]/g, "")))
-                        }
-                        maxLength={3}
-                      />
-                    </View>
+                    {/* Removed Turn Speed and Speed Step settings */}
                     <Text
                       style={{
                         fontWeight: "bold",
