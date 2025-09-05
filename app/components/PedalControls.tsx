@@ -146,7 +146,7 @@ export default function PedalControls({
         <View
           style={{
             flexDirection: "row",
-            gap: 32,
+            gap: 20,
             marginTop: 40,
             alignItems: "flex-end",
           }}
