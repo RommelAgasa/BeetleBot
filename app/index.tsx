@@ -378,7 +378,7 @@ export default function App() {
                       RoboCar Controller
                     </Text>
                     <Text>
-                      Version 1.0.3{"\n"}Developed for controlling BLE-enabled
+                      Version 1.0.4{"\n"}Developed for controlling BLE-enabled
                       cars via Bluetooth Low Energy.
                     </Text>
                     <Text style={{ marginTop: 10, fontWeight: "bold" }}>
@@ -492,6 +492,10 @@ export default function App() {
                           setMaxSpeed(clamped);
                         }}
                         maxLength={3}
+                        placeholder="0-100"
+                        placeholderTextColor="#666"
+                        selectionColor="#1976d2"
+                        cursorColor="#1976d2"
                       />
                     </View>
                     {/* Removed Turn Speed and Speed Step settings */}

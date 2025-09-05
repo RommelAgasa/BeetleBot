@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 
 const styles = StyleSheet.create({
-  // ...existing code from styles object in index.tsx...
   titleContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -84,8 +83,8 @@ const styles = StyleSheet.create({
   leftPanel: {
     flex: 1.2,
     alignItems: "center",
-    justifyContent: "flex-start", // move content to the top
-    marginTop: 0, // remove extra top margin
+    justifyContent: "flex-start",
+    marginTop: 0,
   },
   rightPanel: {
     flex: 1,
@@ -283,14 +282,20 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     minWidth: 60,
     fontSize: 15,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#ffffff",
+    color: "#000",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
     marginLeft: 8,
   },
   // --- Steering wheel and pedal controls ---
   steeringWheelContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 0, // remove extra top margin
+    marginTop: 0,
   },
   steeringWheel: {
     flexDirection: "row",
