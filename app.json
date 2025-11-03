@@ -17,7 +17,14 @@
         "backgroundColor": "#45556c"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.scintilla.robocarcontroller"
+      "package": "com.scintilla.robocarcontroller",
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -34,6 +41,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#45556c"
         }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to bluetooth devices"
+        }
       ]
     ],
     "experiments": {
@@ -42,8 +57,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "10fcdb49-72f3-48be-909c-f6f435e68ae9"
+        "projectId": "f0be81b8-8691-41c2-8d63-78d5b1437216"
       }
-    }
+    },
+    "owner": "rommel_expo"
   }
 }

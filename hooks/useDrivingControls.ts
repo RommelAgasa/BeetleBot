@@ -1,8 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 
+// DriveMode – Represents the car’s driving state: moving forward, moving reverse, or stopped.
 export type DriveMode = "forward" | "reverse" | "stopped";
+// SteeringDir – Represents the steering wheel’s direction: left, right, or center.
 export type SteeringDir = "left" | "right" | "center";
 
+// Parameters passed to the hook:
 interface UseDrivingControlsParams {
   sendCommand: (c: string) => Promise<void>;
   commandMap: Record<string, string>;
@@ -10,6 +13,9 @@ interface UseDrivingControlsParams {
   speedStep: number;
 }
 
+// This describes everything the hook returns, i.e., the current speed, 
+// drive/steering state, and all control functions. Essentially, 
+// it defines your API for the component that uses the hook.
 export interface UseDrivingControlsReturn {
   speed: number;
   setSpeed: React.Dispatch<React.SetStateAction<number>>;
@@ -30,6 +36,7 @@ export const useDrivingControls = ({
   maxSpeed,
   speedStep,
 }: UseDrivingControlsParams): UseDrivingControlsReturn => {
+
   const [speed, setSpeed] = useState<number>(0);
   const [driveMode, setDriveMode] = useState<DriveMode>("stopped");
   const [steeringDirection, setSteeringDirection] =
@@ -40,16 +47,25 @@ export const useDrivingControls = ({
   const lastDriveMode = useRef<DriveMode>("stopped");
   const lastSteeringAngle = useRef<number>(0);
 
+
+
+  // Steering Handling
   const STEERING_THRESHOLD = 10;
 
   const handleSteeringChange = useCallback(
     (angle: number) => {
+
+      /**
+       * Converts a numeric angle into a steering direction.
+       */
       let direction: SteeringDir;
+      // -10 → left, +10 → right, otherwise center.
       if (angle < -STEERING_THRESHOLD) direction = "left";
       else if (angle > STEERING_THRESHOLD) direction = "right";
       else direction = "center";
 
-      setSteeringDirection(direction);
+      // Updates steeringDirection state.
+      setSteeringDirection(direction); 
 
       // Send commands even for small angle changes for smoother control
       const angleChanged = Math.abs(angle - lastSteeringAngle.current) > 2;
@@ -60,6 +76,13 @@ export const useDrivingControls = ({
       lastSteeringDirection.current = direction;
       lastSteeringAngle.current = angle;
 
+      /**
+       * Logic for sending commands:
+        If pedal is pressed and car is moving:
+          Forward → F, FL, FR
+          Reverse → B, BL, BR
+        If pedal is not pressed, send turning-only commands: L, R, or stop (S).
+       */
       if (pedalPressed && driveMode !== "stopped") {
         if (driveMode === "forward") {
           if (direction === "left") sendCommand(commandMap["FL"]);
@@ -85,8 +108,9 @@ export const useDrivingControls = ({
     [STEERING_THRESHOLD, pedalPressed, driveMode, commandMap, sendCommand]
   );
 
+  // Accelerator / Reverse / Deceleration
   const handleAccelerate = useCallback(() => {
-    setPedalPressed(true);
+    setPedalPressed(true); 
     setDriveMode((prev) => {
       if (prev !== "forward") {
         sendCommand(commandMap["F"]);

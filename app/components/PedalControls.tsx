@@ -151,6 +151,8 @@ export default function PedalControls({
             alignItems: "flex-end",
           }}
         >
+
+
           {/* Brake pedal (left, wide and short rectangle) */}
           <GestureDetector gesture={brakeGesture}>
             <View style={{ alignItems: "center" }}>
@@ -187,6 +189,10 @@ export default function PedalControls({
               ></Text>
             </View>
           </GestureDetector>
+
+
+
+
           {/* Accelerator pedal (center, tall rectangle) */}
           <GestureDetector gesture={accelerateGesture}>
             <View style={{ alignItems: "center" }}>
@@ -223,6 +229,7 @@ export default function PedalControls({
               ></Text>
             </View>
           </GestureDetector>
+
           {/* Reverse pedal (right, tall rectangle, red) */}
           <GestureDetector gesture={reverseGesture}>
             <View style={{ alignItems: "center" }}>
@@ -259,6 +266,9 @@ export default function PedalControls({
               ></Text>
             </View>
           </GestureDetector>
+
+
+          
         </View>
       </View>
     </View>
