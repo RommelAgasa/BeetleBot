@@ -9,67 +9,11 @@ export default StyleSheet.create({
     width: "100%",
     padding: 30,
   },
-
   // ==============================
-  // ROW 1 — Title + Bluetooth/Settings
-  // ==============================
-  row1: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    height: "20%", // takes up 20% of the screen height
-    width: "100%",
-    borderWidth: 1,
-  },
-
-  title_container: {
-    flexDirection: "row",
-    padding: 20,
-    gap: 2, // small space between Beetle and bot
-    borderWidth: 1,
-    width: "60%",
-  },
-
-  bluetooth_setting_container: {
-    flexDirection: "row",
-    width: "40%",
-    display: "flex",
-    justifyContent:  "center",
-    alignItems: "center",
-    margin: 0,
-  },
-
-  title_Beetle: {
-    color: "#FF9E42",
-    fontSize: 30,
-    fontWeight: "500",
-  },
-
-  title_bot: {
-    color: "#999999",
-    fontSize: 30,
-    fontWeight: "500",
-  },
-
-  bluetooth: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "flex-end",
-    flex: 1,
-  },
-
-  setting: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-
-  // ==============================
-  //  ROW 2 — Control Section
+  //  ROW  — Control Section
   // (Left: Steering | Right: Gear + Claw + Accel/Break)
   // ==============================
-  row2: {
+  row: {
     flex: 1, // fills remaining height
     flexDirection: "row",
     width: "100%",
@@ -78,16 +22,16 @@ export default StyleSheet.create({
   // ----- Left side (Steering Wheel)
   row2_left_container: {
     flex: 1, // 50% width
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    paddingBottom: 30,
+    paddingLeft: 30,
   },
 
   // ----- Right side (Gear + Controls)
   row2_right_container: {
     flex: 1, // 50% width
     flexDirection: "row",
-    borderWidth: 1,
   },
 
   // Gear section
@@ -95,22 +39,19 @@ export default StyleSheet.create({
     flex: 0.4, // 40% of right container
     justifyContent: "flex-end",
     alignItems: "center",
-    borderWidth: 1,
   },
 
   // Claw + Accel/Break section
   row2_right_container_right: {
     flex: 0.6, // 60% of right container
-    borderWidth: 1,
   },
 
   // ----- Claw panel
   claw: {
     justifyContent: "center",
     alignItems: "flex-end",
-    borderWidth: 1,
     padding: 20,
-    height: "40%",
+    height: "50%",
   },
 
   // ----- Acceleration + Break (side-by-side)
@@ -121,9 +62,8 @@ export default StyleSheet.create({
 
   acceleration: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     alignItems: "center",
-    borderWidth: 1,
     padding: 20,
   },
 
@@ -131,7 +71,6 @@ export default StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     alignItems: "center",
-    borderWidth: 1,
     padding: 20,
   },
 });

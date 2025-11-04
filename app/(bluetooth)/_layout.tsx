@@ -1,17 +1,17 @@
 import { Slot } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
 
-export default function WelcomeLayout() {
+export default function BluetoothLayout() {
   return (
-    <View
-      style={style.container}
-    >
-      {/* This Slot renders child screens like welcome/index.tsx */}
-      <Slot />
-    </View>
+    <>
+      <StatusBar hidden />
+      <View style={style.container}>
+        <Slot />
+      </View>
+    </>
   );
 }
-
 
 const style = StyleSheet.create({
   container: {

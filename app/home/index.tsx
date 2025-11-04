@@ -1,5 +1,13 @@
-import CustomText from "@/src/theme/custom-theme";
-import { Text, View } from "react-native";
+import { BeetleBotLabel } from "@/src/theme/BeetleBotLabel";
+import { NavbarStyle } from "@/src/theme/NavBarStyle";
+import { View } from "react-native";
+import AccelaratorButton from "./components/accelaration";
+import Bluetooth from "./components/bluetooth";
+import BreakButton from "./components/break";
+import ClawButton from "./components/claw";
+import GearSelector from "./components/gear";
+import Settings from "./components/settings";
+import SteeringWheel from "./components/steering-wheel";
 import style from "./screen-style";
 
 
@@ -7,44 +15,45 @@ export default function Home(){
     return (
         <>
             <View style={style.container}>
-                <View style={style.row1}>
+                <View style={NavbarStyle.navbar_row}>
 
-                    <View style={style.title_container}>
-                        <CustomText style={style.title_Beetle}>Beetle</CustomText>
-                        <CustomText style={style.title_bot}>bot</CustomText>
+                    <View style={NavbarStyle.title_container}>
+                        <BeetleBotLabel/>
                     </View>
 
-                    <View style={style.bluetooth_setting_container}>
-                        <View style={style.bluetooth}>
-                            <Text>Bluetooth</Text>
+                    <View style={NavbarStyle.bluetooth_setting_container}>
+                        <View style={NavbarStyle.bluetooth}>
+                            <Bluetooth />
                         </View>
-                        <View style={style.setting}>
-                            <Text>Settings</Text>
+                        <View style={NavbarStyle.setting}>
+                            <Settings/>
                         </View>
                     </View>
 
                 </View>
 
-                <View style={style.row2}>
+                <View style={style.row}>
                     <View style={style.row2_left_container}>
-                        <Text>Steering Wheel</Text>
+                        <SteeringWheel onAngleChange={(angle) => console.log( angle)}/>
                     </View>
                     <View style={style.row2_right_container}>
                         <View style={style.row2_right_container_left}>
-                            <Text>Gear Selector</Text>
+                            <GearSelector/>
                         </View>
                         <View style={style.row2_right_container_right}>
                             <View style={style.claw}>
-                                <Text>Claw Button</Text>
+                                <ClawButton/>
                             </View>
                             <View style={style.row2_right_accelaration_break_container}>
                                 <View style={style.break}>
                                     <View style={{ display: "flex", justifyContent: "flex-end", alignItems: "center"}}>
-                                        <Text>Break</Text>
+                                        <BreakButton/>
                                     </View>
                                 </View>
                                 <View style={style.acceleration}>
-                                    <Text>Accelarator</Text>
+                                    <View style={{ display: "flex", justifyContent: "flex-end", alignItems: "center"}}>
+                                        <AccelaratorButton/>
+                                    </View>
                                 </View>
                             </View>
                         </View>

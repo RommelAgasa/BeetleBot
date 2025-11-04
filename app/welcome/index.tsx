@@ -1,8 +1,7 @@
-import CustomText from "@/src/theme/custom-theme";
+import { BeetleBotLabel } from "@/src/theme/BeetleBotLabel";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { View } from "react-native";
-import style from "./screen-style";
+import { StyleSheet, View } from "react-native";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -18,9 +17,21 @@ export default function WelcomeScreen() {
   return (
     <View style={style.container}>
       <View style={style.title_container}>
-        <CustomText style={style.title_Beetle}>Beetle</CustomText>
-        <CustomText style={style.title_bot}>bot</CustomText>
+        <BeetleBotLabel/>
       </View>
     </View>
   );
 }
+
+const style = StyleSheet.create({
+  container: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
+  title_container: {
+    display: "flex",
+    flexDirection: "row",
+    gap:2
+  },
+});
