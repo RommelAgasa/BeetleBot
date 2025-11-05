@@ -1,3 +1,4 @@
+import { BleProvider } from "@/src/context/BleContext";
 import * as NavigationBar from "expo-navigation-bar";
 import { Stack, useSegments } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
@@ -51,11 +52,13 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
-    <Stack>
-      <Stack.Screen name="welcome" options={{ headerShown: false }} />
-      <Stack.Screen name="home" options={{ headerShown: false }} />
-      <Stack.Screen name="(bluetooth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(setting)" options={{ headerShown: false }} />
-    </Stack>
+    <BleProvider>
+      <Stack>
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="home" options={{ headerShown: false }} />
+        <Stack.Screen name="(bluetooth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(setting)" options={{ headerShown: false }} />
+      </Stack>
+    </BleProvider>
   );
 }

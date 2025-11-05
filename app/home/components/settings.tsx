@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -6,6 +6,8 @@ import Svg, { Path } from "react-native-svg";
 export default function Settings() {
 
   const router = useRouter();
+  const pathName = usePathname();
+
   // Create animated scale value
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -26,7 +28,10 @@ export default function Settings() {
       bounciness: 5,
     }).start();
 
-    // router.push("/(setting)/setting");
+    // Navigate to settings
+    if(pathName !== "/setting"){
+      router.push("/setting");
+    }
   };
 
   return (

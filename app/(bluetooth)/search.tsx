@@ -1,96 +1,161 @@
-import { BeetleBotLabel } from "@/src/theme/BeetleBotLabel";
+import { useBleContext } from "@/src/context/BleContext";
 import CustomText from "@/src/theme/custom-theme";
-import { NavbarStyle } from "@/src/theme/NavBarStyle";
-import { Link } from "expo-router";
-import { Pressable, ScrollView, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useEffect } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
-import Bluetooth from "../home/components/bluetooth";
-import Settings from "../home/components/settings";
+import TopNavBar from "../components/TopNavBar";
 import { bluetoothPageStyle } from "./screen-style";
 
 export default function BluetoothSearch() {
-  // Mock data - replace with your actual data
-  const bluetoothDevices = [
-    { id: 1, name: "Beetlebot 1" },
-    { id: 2, name: "Beetlebot 2" },
-    { id: 3, name: "Beetlebot 1" },
-    { id: 4, name: "Beetlebot 2" },
-    { id: 5, name: "Beetlebot 1" },
-    { id: 6, name: "Beetlebot 2" },
-    { id: 7, name: "Beetlebot 2" },
-    { id: 8, name: "Beetlebot 2" },
-    { id: 9, name: "Beetlebot 2" },
-    { id: 10, name: "Beetlebot 2" },
-    { id: 11, name: "Beetlebot 2" },
-    { id: 12, name: "Beetlebot 2" },
-    // Add more as needed
-  ];
+  const {
+    devicesMap,
+    isScanning,
+    scanForDevices,
+    stopScan,
+    connectToDevice,
+  } = useBleContext();
+
+  const router = useRouter();
+
+
+  // Auto-scan when entering the screen, stop when leaving
+  useEffect(() => {
+    console.log("Starting BLE scan...");
+    if (!isScanning) scanForDevices();
+
+    return () => {
+      console.log("Stopping BLE scan...");
+      stopScan();
+    };
+  }, []);
+
+  // Handle connect
+  const handleConnect = async (d: any) => {
+    try {
+      await stopScan(); // stop scanning before connecting
+      await connectToDevice(d);
+      console.log("Connected to:", d.name || "Unnamed");
+      router.push("/home");
+    } catch (err) {
+      console.error("Failed to connect:", err);
+      Alert.alert("Connection failed", "Unable to connect to this device.");
+    }
+  };
+
+  // Retry Scan (debounced)
+  const handleRetryScan = async () => {
+    if (isScanning) return; // prevent spam
+    console.log("Retrying BLE scan...");
+    await stopScan();
+    scanForDevices();
+  };
 
   return (
-    <> 
-      <View style={bluetoothPageStyle.container}>
-        {/** Navbar */}
-        <View style={NavbarStyle.navbar_row}>
-          <View style={NavbarStyle.title_container}>
-            <BeetleBotLabel/>
+    <View style={bluetoothPageStyle.container}>
+
+      {/** Top Navigation Bar */}
+      <TopNavBar/>
+
+      {/* Main Content */}
+      <View style={bluetoothPageStyle.row}>
+        {/* Searching Indicator */}
+        <View style={bluetoothPageStyle.searching_container}>
+          <View style={bluetoothPageStyle.circle}>
+            <Svg width={26} height={38} viewBox="0 0 20 26" fill="none">
+              <Path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M12.2284 1.55717L17.4775 4.88641C17.964 5.19998 18.25 5.6895 18.25 6.20906C18.25 6.7286 17.964 7.21814 17.4775 7.53171L9.25063 12.7499L17.4775 17.9682C17.964 18.2819 18.25 18.7713 18.25 19.2908C18.25 19.8104 17.964 20.3 17.4775 20.6135L12.2284 23.9427C11.652 24.3015 10.8861 24.35 10.2537 24.0678C9.62122 23.7857 9.23221 23.222 9.25063 22.6143V2.88558C9.23221 2.27793 9.62122 1.7143 10.2537 1.43218C10.8861 1.15007 11.652 1.19854 12.2284 1.55717Z"
+                stroke="#FF9E42"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M1.25 6.25L9.25 12.25L1.25 18.25"
+                stroke="#FF9E42"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </View>
-          <View style={NavbarStyle.bluetooth_setting_container}>
-            <View style={NavbarStyle.bluetooth}>
-              <Bluetooth />
-            </View>
-            <View style={NavbarStyle.setting}>
-              <Settings/>
-            </View>
+
+          {/* Status + Retry Button */}
+          <View style={{ alignItems: "center" }}>
+            {isScanning ? (
+              <>
+                <ActivityIndicator color="#FF9E42" />
+                <CustomText style={{ fontSize: 18, marginTop: 8 }}>
+                  Scanning...
+                </CustomText>
+              </>
+            ) : (
+              <>
+                <CustomText style={{ fontSize: 20, fontWeight: "bold" }}>
+                  Scan complete
+                </CustomText>
+
+                {/* Retry Button appears only after scanning stops */}
+                <Pressable
+                  onPress={handleRetryScan}
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: "#FF9E42",
+                    paddingHorizontal: 18,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                  }}
+                >
+                  <CustomText
+                    style={{
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: 16,
+                    }}
+                  >
+                    Retry Scan
+                  </CustomText>
+                </Pressable>
+              </>
+            )}
           </View>
+
         </View>
 
-        {/** Main Content */}
-        <View style={bluetoothPageStyle.row}>
-          
-          {/** LEFT - Searching */}
-          <View style={bluetoothPageStyle.searching_container}>
-            <View style={bluetoothPageStyle.circle}>
-              <Svg width={26} height={48} viewBox="0 0 20 26" fill="none">
-                <Path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12.2284 1.55717L17.4775 4.88641C17.964 5.19998 18.25 5.6895 18.25 6.20906C18.25 6.7286 17.964 7.21814 17.4775 7.53171L9.25063 12.7499L17.4775 17.9682C17.964 18.2819 18.25 18.7713 18.25 19.2908C18.25 19.8104 17.964 20.3 17.4775 20.6135L12.2284 23.9427C11.652 24.3015 10.8861 24.35 10.2537 24.0678C9.62122 23.7857 9.23221 23.222 9.25063 22.6143V2.88558C9.23221 2.27793 9.62122 1.7143 10.2537 1.43218C10.8861 1.15007 11.652 1.19854 12.2284 1.55717Z"
-                  stroke="#FF9E42"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <Path
-                  d="M1.25 6.25L9.25 12.25L1.25 18.25"
-                  stroke="#FF9E42"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
-            <CustomText style={{fontSize: 20, fontWeight: "bold"}}>Searching ...</CustomText>
-          </View>
-
-          {/** RIGHT - Searched Results with ScrollView */}
-          <View style={bluetoothPageStyle.searched_container}>
-            <ScrollView 
-              contentContainerStyle={bluetoothPageStyle.scrollContent}
-              scrollEnabled={true}
-            >
-              {bluetoothDevices.map((device) => (
-                <Link key={device.id} href="/" asChild>
-                  <Pressable style={bluetoothPageStyle.round_rectangle}>
-                    <CustomText style={{color: "#FF9E42"}}>
-                      {device.name}
-                    </CustomText>
-                  </Pressable>
-                </Link>
-              ))}
-            </ScrollView>
-          </View>
+        {/* Device List */}
+        <View style={bluetoothPageStyle.searched_container}>
+          <ScrollView
+            contentContainerStyle={bluetoothPageStyle.scrollContent}
+            scrollEnabled={true}
+          >
+            {Array.from(devicesMap.values()).length === 0 && !isScanning ? (
+              <CustomText style={{ color: "#888" }}>
+                No devices found.
+              </CustomText>
+            ) : (
+              Array.from(devicesMap.values()).map((d) => (
+                <Pressable
+                  key={d.id}
+                  style={bluetoothPageStyle.round_rectangle}
+                  onPress={() => handleConnect(d)}
+                >
+                  <CustomText style={{ color: "#FF9E42" }}>
+                    {d.name || d.localName || "Unnamed"}
+                  </CustomText>
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
         </View>
       </View>
-    </>
+    </View>
   );
 }

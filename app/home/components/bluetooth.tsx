@@ -1,5 +1,5 @@
 import CustomText from "@/src/theme/custom-theme";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { useRef } from "react";
 import { Animated, Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -7,6 +7,7 @@ import Svg, { Path } from "react-native-svg";
 export default function Bluetooth() {
   
   const router = useRouter();
+  const pathname = usePathname(); // current route
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -27,7 +28,9 @@ export default function Bluetooth() {
     }).start();
 
     // Navigate
-    router.push("/(bluetooth)/search");
+    if (pathname !== "/search") {
+      router.push("/search");
+    }
   };
 
   return (
