@@ -47,6 +47,8 @@ export const useDrivingControls = ({
   const lastDriveMode = useRef<DriveMode>("stopped");
   const lastSteeringAngle = useRef<number>(0);
 
+  const decelInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const accelInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
 
   // Steering Handling
@@ -110,26 +112,45 @@ export const useDrivingControls = ({
 
   // Accelerator / Reverse / Deceleration
   const handleAccelerate = useCallback(() => {
-    setPedalPressed(true); 
-    setDriveMode((prev) => {
-      if (prev !== "forward") {
-        sendCommand(commandMap["F"]);
-        sendCommand(commandMap["+"]);
-      }
-      return "forward";
-    });
-    setSpeed((prev) => {
-      if (prev < maxSpeed) {
+    setPedalPressed(true);
+
+    // Stop deceleration if currently decelerating
+    if (decelInterval.current) {
+      clearInterval(decelInterval.current);
+      decelInterval.current = null;
+    }
+
+    // Prevent multiple acceleration loops
+    if (accelInterval.current) return;
+
+    accelInterval.current = setInterval(() => {
+      setSpeed((prev) => {
+        if (prev >= maxSpeed) {
+          clearInterval(accelInterval.current!);
+          accelInterval.current = null;
+          return prev;
+        }
+
+        const newSpeed = Math.min(prev + speedStep, maxSpeed);
+
+        // Choose direction commands
         if (steeringDirection === "left") sendCommand(commandMap["FL"]);
         else if (steeringDirection === "right") sendCommand(commandMap["FR"]);
         else sendCommand(commandMap["F"]);
+
         sendCommand(commandMap["+"]);
-        return prev + speedStep;
-      }
-      return prev;
-    });
-    lastDriveMode.current = "forward";
-  }, [commandMap, maxSpeed, speedStep, steeringDirection, sendCommand]);
+
+        // Update drive mode
+        if (driveMode !== "forward") {
+          setDriveMode("forward");
+          lastDriveMode.current = "forward";
+        }
+
+        return newSpeed;
+      });
+    }, 150); // accelerate smoothly every 150ms
+  }, [commandMap, driveMode, maxSpeed, speedStep, steeringDirection, sendCommand]);
+
 
   const handleReverse = useCallback(() => {
     setPedalPressed(true);
@@ -154,11 +175,23 @@ export const useDrivingControls = ({
   }, [commandMap, maxSpeed, speedStep, steeringDirection, sendCommand]);
 
   const handleDecelerate = useCallback(() => {
-    setSpeed((prev) => {
-      if (prev > 0) {
-        sendCommand(commandMap["-"]);
-        const newSpeed = prev - speedStep;
-        if (newSpeed <= 0) {
+    // Stop acceleration if decelerating
+    if (accelInterval.current) {
+      clearInterval(accelInterval.current);
+      accelInterval.current = null;
+    }
+
+    // Prevent multiple decel loops
+    if (decelInterval.current) return;
+
+    console.log("Decelerating smoothly...");
+
+    decelInterval.current = setInterval(() => {
+      setSpeed((prev) => {
+        if (prev <= 0) {
+          clearInterval(decelInterval.current!);
+          decelInterval.current = null;
+
           if (driveMode !== "stopped") {
             sendCommand(commandMap["S"]);
             setDriveMode("stopped");
@@ -166,17 +199,20 @@ export const useDrivingControls = ({
           }
           return 0;
         }
+
+        // Smooth proportional deceleration
+        const decelFactor = Math.max(0.05, prev / maxSpeed); // between 0.05–1
+        const variableStep = Math.max(speedStep * decelFactor * 1.5, 0.5);
+
+        const newSpeed = Math.max(prev - variableStep, 0);
+        sendCommand(commandMap["-"]);
+
         return newSpeed;
-      } else {
-        if (lastDriveMode.current !== "stopped") {
-          sendCommand(commandMap["S"]);
-          setDriveMode("stopped");
-          lastDriveMode.current = "stopped";
-        }
-        return 0;
-      }
-    });
-  }, [commandMap, speedStep, driveMode, sendCommand]);
+      });
+    }, 200); // update every 200ms for smoother transition
+  }, [commandMap, speedStep, driveMode, maxSpeed, sendCommand]);
+
+
 
   const handleBrake = useCallback(() => {
     setDriveMode("stopped");

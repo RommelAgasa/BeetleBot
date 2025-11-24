@@ -271,39 +271,56 @@ export class BleService implements IBleService {
   }
 
   /** ---------------------- COMMANDS ---------------------- */
-
   /**
    * Sends a command string to the device.
    * Encodes the string to Base64 as required by BLE devices.
    */
   async sendCommand(command: string) {
-    if (!this.device?.id || !this.serviceUUID || !this.characteristicUUID) {
-        Alert.alert("Not connected or writable characteristic missing");
-        return;
+    // Prevent sending if device is not connected
+    if (!this.device || !this.device.id) {
+      console.warn("No connected device. Command skipped:", command);
+      return;
+    }
+
+    if (!this.serviceUUID || !this.characteristicUUID) {
+      console.warn("Missing service/characteristic UUIDs. Command skipped:", command);
+      return;
     }
 
     try {
-        const encoded = btoa(command);
-        if (this.charWriteWithResponse) {
+      const encoded = btoa(command);
+
+      if (this.charWriteWithResponse) {
         await this.device.writeCharacteristicWithResponseForService(
-            this.serviceUUID,
-            this.characteristicUUID,
-            encoded
+          this.serviceUUID,
+          this.characteristicUUID,
+          encoded
         );
-        } else {
+      } else {
         await this.device.writeCharacteristicWithoutResponseForService(
-            this.serviceUUID,
-            this.characteristicUUID,
-            encoded
+          this.serviceUUID,
+          this.characteristicUUID,
+          encoded
         );
-        }
+      }
+
+      console.log("Command sent:", command);
     } catch (error: any) {
-        console.error("Send command error:", error);
-        // Check if device was disconnected
-        if (error?.message?.includes("disconnected")) {
-        this.resetConnection();
-        }
-        throw error;
+      console.error("Send command error:", error?.message || error);
+
+      // Handle known disconnection errors safely
+      if (
+        error?.message?.includes("disconnected") ||
+        error?.message?.includes("not found") ||
+        error?.message?.includes("GATT") ||
+        error?.message?.includes("device was disconnected")
+      ) {
+        console.warn("Device disconnected during command. Resetting connection...");
+        this.resetConnection?.();
+      }
+
+      // Do NOT rethrow — prevents crash from unhandled Promise rejection
+      // throw error; 
     }
   }
 
@@ -324,11 +341,11 @@ export class BleService implements IBleService {
     this.resetConnection();
   }
 
-  /** Clears all BLE connection state */
+    /** Clears all BLE connection state */
   private resetConnection() {
-    this.device = null;
-    this.serviceUUID = null;
-    this.characteristicUUID = null;
-    this.charWriteWithResponse = null;
+      this.device = null;
+      this.serviceUUID = null;
+      this.characteristicUUID = null;
+      this.charWriteWithResponse = null;
   }
 }

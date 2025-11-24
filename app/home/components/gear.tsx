@@ -16,32 +16,30 @@ interface GearSelectorProps {
 }
 
 export default function GearSelector({ onGearChange }: GearSelectorProps) {
-  // 🏷 Available gear positions (top to bottom)
+  // Available gear positions (top to bottom)
   const positions = ["Gear 2", "Gear 1", "Reverse"];
 
-  // 📏 Total height of the track and handle dimensions
-  const totalHeight = 160; // Total visible slider area
-  const handleHeight = 80; // Handle (movable oval button)
-  const maxTravel = totalHeight - handleHeight; // Ensures handle never leaves track
+  // Slider setup
+  const totalHeight = 160; // total track height
+  const handleHeight = 80; // handle size
+  const maxTravel = totalHeight - handleHeight; // movement range
+  const slotHeight = maxTravel / (positions.length - 1); // spacing between gears
 
-  // 📍 Calculate vertical distance between each gear stop
-  const slotHeight = maxTravel / (positions.length - 1);
-
-  // ⚙️ Start in the middle gear (Gear 1)
+  // Default gear index (middle = Gear 1)
   const [selectedIndex, setSelectedIndex] = useState<number>(1);
 
-  // 🎞️ Animated Y position for the slider handle
+  // Animation state for handle
   const translateY = useRef(new Animated.Value(selectedIndex * slotHeight)).current;
 
   /**
-   * 🔄 Function to change gear with animation and haptic feedback
+   * Change gear (animated + haptic)
    */
   const changeGear = (index: number) => {
-    if (index < 0 || index >= positions.length) return; // guard
+    if (index < 0 || index >= positions.length) return;
 
     setSelectedIndex(index);
 
-    // 🌀 Smooth spring animation for handle movement
+    // Animate smooth snapping
     Animated.spring(translateY, {
       toValue: index * slotHeight,
       damping: 10,
@@ -50,55 +48,43 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
       useNativeDriver: true,
     }).start();
 
-    // 💥 Haptic feedback for tactile feel
+    // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // 📤 Notify parent component of the gear change (optional)
-    if (onGearChange) onGearChange(positions[index]);
+    console.log(positions[index]);
+    // Notify parent hook/service
+    onGearChange?.(positions[index]);
   };
 
   /**
-   * ✋ PanResponder — handles dragging gestures on the handle
+   * Handle dragging gestures
    */
   const panResponder: PanResponderInstance = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false, // don't start immediately
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10, // only respond to significant vertical movement
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
 
-      // 📍 While dragging
-      onPanResponderMove: (
-        _: GestureResponderEvent,
-        gesture: PanResponderGestureState
-      ) => {
+      onPanResponderMove: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
         const newY = gesture.dy + selectedIndex * slotHeight;
-
-        // 🚫 Prevent dragging beyond top/bottom limits
-        if (newY >= 0 && newY <= maxTravel) {
-          translateY.setValue(newY);
-        }
+        if (newY >= 0 && newY <= maxTravel) translateY.setValue(newY);
       },
 
-      // 🏁 When drag is released, determine which gear to snap to
-      onPanResponderRelease: (
-        _: GestureResponderEvent,
-        gesture: PanResponderGestureState
-      ) => {
-        const velocity = gesture.vy; // finger flick speed
+      onPanResponderRelease: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        const velocity = gesture.vy;
         let targetIndex = selectedIndex;
 
-        // ⚙️ Adjusted drag sensitivity (more precise, less jumpy)
-        const dragThreshold = 35; // increased from 20 → more controlled
+        const dragThreshold = 35; // movement sensitivity
 
-        // If drag is downward past threshold → next gear
+        // Dragged down (next gear)
         if (gesture.dy > dragThreshold && selectedIndex < positions.length - 1) {
           targetIndex = selectedIndex + 1;
         }
-        // If drag is upward past threshold → previous gear
+        //  Dragged up (previous gear)
         else if (gesture.dy < -dragThreshold && selectedIndex > 0) {
           targetIndex = selectedIndex - 1;
         }
 
-        // 🌀 Velocity bias for flicks (but not too sensitive)
+        // Velocity-based flick
         if (Math.abs(velocity) > 1.6) {
           if (velocity > 0 && selectedIndex < positions.length - 1)
             targetIndex = selectedIndex + 1;
@@ -106,10 +92,9 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
             targetIndex = selectedIndex - 1;
         }
 
-        // 🔒 Keep target index within valid range
+        // Ensure valid range
         targetIndex = Math.max(0, Math.min(targetIndex, positions.length - 1));
 
-        // 🎬 Apply gear change
         changeGear(targetIndex);
       },
     })
@@ -117,14 +102,14 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
 
   return (
     <View style={styles.container}>
-      {/* 🔠 Gear labels (Gear 2, Gear 1, Reverse) */}
+      {/* Gear labels */}
       <View style={styles.labelsContainer}>
         {positions.map((pos, i) => (
           <View key={i} style={[styles.labelSlot, { height: handleHeight / 1.5 }]}>
             <Text
               style={[
                 styles.label,
-                selectedIndex === i && styles.labelActive, // highlight current gear
+                selectedIndex === i && styles.labelActive,
               ]}
             >
               {pos}
@@ -133,10 +118,9 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
         ))}
       </View>
 
-      {/* 🎚 Main slider track */}
+      {/* Gear track + handle */}
       <View style={styles.sliderWrapper}>
         <View style={[styles.sliderTrack, { height: totalHeight }]}>
-          {/* 🟠 Movable orange handle */}
           <Animated.View
             {...panResponder.panHandlers}
             style={[
@@ -153,7 +137,7 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
 }
 
 /**
- * 🎨 Styles
+ * Styles
  */
 const styles = StyleSheet.create({
   container: {
@@ -178,7 +162,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   labelActive: {
-    color: "#FF9E42", // 🔸 orange for active gear
+    color: "#FF9E42", // highlight color
     fontWeight: "700",
   },
   sliderWrapper: {

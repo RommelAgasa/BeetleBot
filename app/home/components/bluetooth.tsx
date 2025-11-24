@@ -4,11 +4,12 @@ import { useRef } from "react";
 import { Animated, Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-export default function Bluetooth() {
+export default function Bluetooth({device}:any) {
   
   const router = useRouter();
   const pathname = usePathname(); // current route
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const displayText = device?.name ? device.name : "Connect";
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -60,7 +61,7 @@ export default function Bluetooth() {
           />
         </Svg>
 
-        <CustomText style={{ marginRight: 10 }}>Connect</CustomText>
+        <CustomText style={{ marginRight: 10 }}>{displayText}</CustomText>
       </Animated.View>
     </Pressable>
   );

@@ -1,7 +1,6 @@
 import { useBleContext } from "@/src/context/BleContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
-import * as ScreenOrientation from "expo-screen-orientation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, useWindowDimensions, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -83,16 +82,23 @@ export default function Home() {
   }, [device, sendCommand, maxSpeed]);
 
   useEffect(() => {
-    if (!device) driving.resetDrivingState();
+    //console.log(device);
+
+    if (!device) {
+      console.log("Device disconnected — resetting driving state.");
+      driving.resetDrivingState();
+      //handleDisconnect(); // only if there’s no device
+    }
   }, [device]);
 
   useEffect(() => {
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-    Alert.alert(
-      "Enable Bluetooth & Location",
-      "Please make sure your Bluetooth and Location are turned on for BLE scanning."
-    );
-    return () => stopScan();
+    if(!device){
+        Alert.alert(
+        "Enable Bluetooth & Location",
+        "Please make sure your Bluetooth and Location are turned on for BLE scanning."
+      );
+      return () => stopScan();
+    }
   }, [stopScan]);
 
   const updateEditMapDiagonals = (baseMap: typeof DEFAULT_COMMANDS) => ({
@@ -123,7 +129,7 @@ export default function Home() {
       <View style={style.container}>
 
         {/** Top Navigation Bar */}
-        <TopNavBar/>
+        <TopNavBar device={device}/>
 
         {/* MAIN CONTROLS */}
         <View style={style.row}>
@@ -140,7 +146,7 @@ export default function Home() {
 
           <View style={style.row2_right_container}>
             <View style={style.row2_right_container_left}>
-              <GearSelector />
+              <GearSelector onGearChange={(gear) => driving.handleGearChange(gear)}/>
             </View>
             <View style={style.row2_right_container_right}>
               <View style={style.claw}>

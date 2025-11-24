@@ -19,6 +19,7 @@ export class DefaultDrivingService implements IDrivingService {
   private steeringDirectionCalculator: SteeringDirectionCalculator;
   private speedCalculator: SpeedCalculator;
   private commandExecutor: CommandExecutor;
+  private currentGear: string = "Gear 1"; // default
 
   constructor() {
     this.commandMapper = new CommandMapper();
@@ -33,6 +34,44 @@ export class DefaultDrivingService implements IDrivingService {
    */
   getSteeringDirection(angle: number, threshold: number): SteeringDirection {
     return this.steeringDirectionCalculator.calculate(angle, threshold);
+  }
+
+
+   /**
+   * Handles gear change — updates internal state and sends BLE command
+   */
+  async sendGearChangeCommand(
+    gear: string,
+    commandMap: Record<string, string>,
+    sendCommand: (c: string) => Promise<void>
+  ): Promise<void> {
+    this.currentGear = gear;
+
+    // Map gear names to BLE commands
+    let command = "";
+    switch (gear) {
+      case "Gear 1":
+        command = "G1"; // slower forward
+        break;
+      case "Gear 2":
+        command = "G2"; // faster forward
+        break;
+      case "Reverse":
+        command = "R"; // reverse mode
+        break;
+      default:
+        command = "S"; // stop as fallback
+        break;
+    }
+
+    await this.commandExecutor.sendCommand(command, commandMap, sendCommand);
+  }
+
+  /**
+ * Get current gear (for logic decisions)
+ */
+  getCurrentGear(): string {
+    return this.currentGear;
   }
 
   /**
@@ -63,6 +102,9 @@ export class DefaultDrivingService implements IDrivingService {
   /**
    * Handles forward acceleration with steering consideration
    */
+    /**
+   * Modify accelerate behavior based on gear
+   */
   async sendAccelerateCommand(
     currentSpeed: number,
     maxSpeed: number,
@@ -71,20 +113,42 @@ export class DefaultDrivingService implements IDrivingService {
     commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
-    // Send directional command based on steering
+    const gear = this.currentGear;
+
+    // Handle Reverse gear
+    if (gear === "Reverse") {
+      // Cap reverse speed to ~60% of forward max speed
+      return this.sendReverseCommand(
+        currentSpeed,
+        maxSpeed * 0.6,
+        speedStep,
+        steeringDirection,
+        commandMap,
+        sendCommand
+      );
+    }
+
+    // Apply gear scaling
+    let effectiveMaxSpeed = maxSpeed; // default for Gear 1
+
+    if (gear === "Gear 2") {
+      effectiveMaxSpeed = maxSpeed * 1.2; // 20% faster top speed
+    }
+
+    // Send BLE command for forward acceleration
     const command = this.commandMapper.getForwardCommand(steeringDirection);
     await this.commandExecutor.sendCommand(command, commandMap, sendCommand);
-
-    // Send speed increase command
     await this.commandExecutor.sendCommand("+", commandMap, sendCommand);
 
-    // Calculate and return new speed
+    // Compute new speed (clamped to effectiveMaxSpeed)
     return this.speedCalculator.calculateAcceleratedSpeed(
       currentSpeed,
-      maxSpeed,
+      effectiveMaxSpeed,
       speedStep
     );
   }
+
+
 
   /**
    * Handles reverse acceleration with steering consideration

@@ -24,6 +24,7 @@ export const SteeringWheelController = ({
   const [driveMode, setDriveMode] = useState<DriveMode>("stopped");
   const [steeringDirection, setSteeringDirection] = useState<SteeringDirection>("center");
   const [pedalPressed, setPedalPressed] = useState(false);
+  const [gear, setGear] = useState<string>("Gear 1"); //  Current gear
 
   // Ref variables
   const lastSteeringDirection = useRef<SteeringDirection>("center");
@@ -32,6 +33,26 @@ export const SteeringWheelController = ({
 
   const STEERING_THRESHOLD = 10;
   const ANGLE_CHANGE_THRESHOLD = 2;
+
+   // =========================================
+  // 🔧 HANDLE GEAR CHANGE
+  // =========================================
+  const handleGearChange = useCallback(
+    async (newGear: string) => {
+      setGear(newGear);
+      await drivingService.sendGearChangeCommand(newGear, commandMap, sendCommand);
+
+      // Update drive mode automatically if needed
+      if (newGear === "Reverse") {
+        setDriveMode("reverse");
+      } else {
+        setDriveMode("forward");
+      }
+
+      console.log("✅ Gear changed to:", newGear);
+    },
+    [drivingService, commandMap, sendCommand]
+  );
 
   // =========================================================================
   // STEERING HANDLER
@@ -77,6 +98,8 @@ export const SteeringWheelController = ({
 
   const handleAccelerate = useCallback(() => {
     setPedalPressed(true);
+    console.log('Accelarateeeeee');
+    
 
     setDriveMode((prev) => {
       if (prev !== "forward") {
@@ -204,6 +227,8 @@ export const SteeringWheelController = ({
     setSpeed,
     driveMode,
     steeringDirection,
+    gear,
+    handleGearChange,
     handleSteeringChange,
     handleAccelerate,
     handleReverse,

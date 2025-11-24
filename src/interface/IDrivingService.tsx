@@ -120,4 +120,16 @@ export interface IDrivingService {
     lastDirection: SteeringDirection,
     angleThreshold: number
   ): boolean;
+
+  /**
+   * Handles gear change — updates internal state and sends BLE command
+   * @param gear - The selected gear (e.g., "Gear 1", "Gear 2", "Reverse")
+   * @param commandMap - Map of action keys to command strings
+   * @param sendCommand - Function to send commands to the car
+   */
+  sendGearChangeCommand(
+    gear: string,
+    commandMap: Record<string, string>,
+    sendCommand: (c: string) => Promise<void>
+  ): Promise<void>;
 }
