@@ -1,55 +1,47 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-export default function ClawButton() {
-  const [isClosed, setIsClosed] = useState(false);
+interface ClawButtonProps {
+  clawOpen: boolean;
+  onToggleClaw: () => void;
+}
 
-  // Animated values
+export default function ClawButton({ clawOpen, onToggleClaw }: ClawButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityOpen = useRef(new Animated.Value(1)).current;
-  const opacityClosed = useRef(new Animated.Value(0)).current;
+  const opacityOpen = useRef(new Animated.Value(clawOpen ? 1 : 0)).current;
+  const opacityClosed = useRef(new Animated.Value(clawOpen ? 0 : 1)).current;
 
-  const toggleClaw = () => {
-    const nextState = !isClosed;
-    setIsClosed(nextState);
-
-    // Animate press scale for feedback
-    Animated.sequence([
-      Animated.spring(scaleAnim, {
-        toValue: 0.9,
-        useNativeDriver: true,
-        speed: 50,
-        bounciness: 5,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 30,
-        bounciness: 5,
-      }),
-    ]).start();
-
-    // Animate claw open/close
+  // Keep animation in sync with controller state
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(opacityOpen, {
-        toValue: nextState ? 0 : 1,
+        toValue: clawOpen ? 1 : 0,
         duration: 200,
         useNativeDriver: true,
       }),
       Animated.timing(opacityClosed, {
-        toValue: nextState ? 1 : 0,
+        toValue: clawOpen ? 0 : 1,
         duration: 200,
         useNativeDriver: true,
       }),
     ]).start();
+  }, [clawOpen, opacityOpen, opacityClosed]);
+
+  const handlePress = () => {
+    // Animate press feedback
+    Animated.sequence([
+      Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 5 }),
+      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 5 }),
+    ]).start();
+
+    // Call parent handler to toggle claw
+    onToggleClaw();
   };
 
   return (
-    <Pressable onPress={toggleClaw} style={styles.iconWrapper}>
-      <Animated.View
-        style={[styles.svgContainer, { transform: [{ scale: scaleAnim }] }]}
-      >
+    <Pressable onPress={handlePress} style={styles.iconWrapper}>
+      <Animated.View style={[styles.svgContainer, { transform: [{ scale: scaleAnim }] }]}>
         <View style={styles.circleBackground} />
 
         {/* Open claw */}
@@ -77,9 +69,7 @@ export default function ClawButton() {
 }
 
 const styles = StyleSheet.create({
-  iconWrapper: {
-    padding: 7,
-  },
+  iconWrapper: { padding: 7 },
   svgContainer: {
     width: 77,
     height: 78,
@@ -87,12 +77,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     justifyContent: "center",
     alignItems: "center",
-    // Shadow for iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    // Elevation for Android
     elevation: 5,
   },
   circleBackground: {

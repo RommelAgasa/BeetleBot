@@ -154,7 +154,10 @@ export default function Home() {
             </View>
             <View style={style.row2_right_container_right}>
               <View style={style.claw}>
-                <ClawButton />
+                <ClawButton
+                  clawOpen={driving.clawOpen}
+                  onToggleClaw={driving.handleClawToggle}
+                />
               </View>
               <View style={style.row2_right_accelaration_break_container}>
                 <View style={style.break}>
