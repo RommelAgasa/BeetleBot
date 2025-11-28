@@ -1,6 +1,5 @@
-
 // ============================================================================
-// SERVICE INTERFACE
+// SERVICE INTERFACE (Plain Text Version for BeetleBot)
 // ============================================================================
 
 import { DriveMode } from "../types/DriveMode";
@@ -8,30 +7,30 @@ import { SteeringDirection } from "../types/SteeringDirection";
 
 /**
  * IDrivingService defines the contract for all driving-related operations.
- * This interface abstracts away the implementation details of sending commands,
- * calculating states, and managing driving logic from the React hook.
- * 
+ * This interface abstracts the logic of sending plain text commands to the BeetleBot
+ * (e.g., "F", "B", "+", "-", "S", "O", "C") and managing drive state logic.
+ *
  * Implementing this interface allows for:
- * - Easy testing with mock implementations
- * - Switching between different car control systems
- * - Centralized business logic management
+ * - Centralized logic for command mapping and speed control
+ * - Flexibility to swap between different control protocols (e.g., JSON, BLE)
+ * - Testable and modular driving logic
  */
 export interface IDrivingService {
   /**
-   * Determines steering direction based on a numeric angle
-   * @param angle - The steering angle (negative = left, positive = right)
-   * @param threshold - The threshold for determining center position
-   * @returns The categorical steering direction
+   * Determines steering direction based on steering angle
+   * @param angle - Steering angle (negative = left, positive = right)
+   * @param threshold - Minimum change before considering it as turning
+   * @returns The current steering direction ("left", "right", or "center")
    */
   getSteeringDirection(angle: number, threshold: number): SteeringDirection;
 
   /**
-   * Sends a steering command based on drive mode and steering direction
-   * @param pedalPressed - Wether the accelerator/reverse pedal is pressed
-   * @param driveMode - Current drive mode (forward/reverse/stopped)
-   * @param direction - Current steering direction
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
+   * Sends a steering command (e.g., "F", "B", "L", "R", "FL", "FR", "BL", "BR", "S")
+   * @param pedalPressed - Whether the acceleration pedal is pressed
+   * @param driveMode - Current drive mode (forward, reverse, stopped)
+   * @param direction - Steering direction ("left", "right", or "center")
+   * @param commandMap - Optional map of action keys to command strings
+   * @param sendCommand - BLE send function that sends the text command
    */
   sendSteeringCommand(
     pedalPressed: boolean,
@@ -42,14 +41,8 @@ export interface IDrivingService {
   ): Promise<void>;
 
   /**
-   * Sends forward acceleration commands
-   * @param currentSpeed - Current speed
-   * @param maxSpeed - Maximum allowed speed
-   * @param speedStep - Amount to increase speed
-   * @param steeringDirection - Current steering direction
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
-   * @returns New speed value after acceleration
+   * Sends an acceleration command (e.g., "+", "F", "FL", "FR")
+   * @returns The new speed after acceleration
    */
   sendAccelerateCommand(
     currentSpeed: number,
@@ -61,14 +54,7 @@ export interface IDrivingService {
   ): Promise<number>;
 
   /**
-   * Sends reverse acceleration commands
-   * @param currentSpeed - Current speed
-   * @param maxSpeed - Maximum allowed speed
-   * @param speedStep - Amount to increase speed
-   * @param steeringDirection - Current steering direction
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
-   * @returns New speed value after reverse acceleration
+   * Sends reverse acceleration commands (typically gear handled separately)
    */
   sendReverseCommand(
     currentSpeed: number,
@@ -80,12 +66,8 @@ export interface IDrivingService {
   ): Promise<number>;
 
   /**
-   * Sends deceleration commands
-   * @param currentSpeed - Current speed
-   * @param speedStep - Amount to decrease speed
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
-   * @returns New speed value after deceleration
+   * Sends deceleration commands (e.g., "-", "S")
+   * @returns The new speed and resulting drive mode
    */
   sendDecelerateCommand(
     currentSpeed: number,
@@ -95,9 +77,7 @@ export interface IDrivingService {
   ): Promise<{ newSpeed: number; driveMode: DriveMode }>;
 
   /**
-   * Sends an immediate stop/brake command
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
+   * Sends an immediate stop/brake command ("S")
    */
   sendBrakeCommand(
     commandMap: Record<string, string>,
@@ -105,13 +85,7 @@ export interface IDrivingService {
   ): Promise<void>;
 
   /**
-   * Checks if steering or angle has meaningfully changed
-   * @param currentAngle - The current steering angle
-   * @param lastAngle - The last recorded steering angle
-   * @param currentDirection - The current steering direction
-   * @param lastDirection - The last recorded steering direction
-   * @param angleThreshold - The minimum angle change to be considered significant
-   * @returns True if there's a meaningful change
+   * Checks if steering has changed significantly (optional logic)
    */
   hasSteeringChanged(
     currentAngle: number,
@@ -122,10 +96,8 @@ export interface IDrivingService {
   ): boolean;
 
   /**
-   * Handles gear change — updates internal state and sends BLE command
-   * @param gear - The selected gear (e.g., "Gear 1", "Gear 2", "Reverse")
-   * @param commandMap - Map of action keys to command strings
-   * @param sendCommand - Function to send commands to the car
+   * Sends a gear change command ("1", "2", or "R")
+   * @param gear - The selected gear name
    */
   sendGearChangeCommand(
     gear: string,
@@ -133,14 +105,11 @@ export interface IDrivingService {
     sendCommand: (c: string) => Promise<void>
   ): Promise<void>;
 
-    /**
-   * Toggles the claw open/close state
-   * @param open - Whether to open (true) or close (false) the claw
-   * @param sendCommand - Function to send the JSON command to the car
+  /**
+   * Toggles the claw using plain text ("O" to open, "C" to close)
    */
   toggleClaw(
     open: boolean,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void>;
-
 }

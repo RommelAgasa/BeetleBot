@@ -3,16 +3,18 @@ import { DriveMode } from "../types/DriveMode";
 import { SteeringDirection } from "../types/SteeringDirection";
 
 /**
- * DefaultDrivingService - Updated to communicate with BeetleBot JSON protocol
+ * DefaultDrivingService - Updated to send plain text commands compatible with BeetleBot firmware
  */
 export class DefaultDrivingService implements IDrivingService {
   getSteeringDirection(angle: number, threshold: number): SteeringDirection {
     throw new Error("Method not implemented.");
   }
+
   private currentGear: string = "Gear 1"; // "Gear 1" | "Gear 2" | "Reverse"
   private clawOpen = false;
 
-  private getGearValue(): string {
+  /** Converts gear label to Arduino command */
+  private getGearCommand(): string {
     switch (this.currentGear) {
       case "Gear 1":
         return "1";
@@ -25,24 +27,24 @@ export class DefaultDrivingService implements IDrivingService {
     }
   }
 
-  private async sendJson(sendCommand: (c: string) => Promise<void>, json: any) {
-    const jsonString = JSON.stringify(json);
-    await sendCommand(jsonString);
+  /** Sends a plain text command to Arduino */
+  private async sendText(sendCommand: (c: string) => Promise<void>, cmd: string) {
+    console.log("Sending command:", cmd);
+    await sendCommand(cmd);
   }
 
+  /** Gear switching: sends 1, 2, or R */
   async sendGearChangeCommand(
     gear: string,
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
     this.currentGear = gear;
-    const json = {
-      type: "gear",
-      gear: this.getGearValue(),
-    };
-    await this.sendJson(sendCommand, json);
+    const cmd = this.getGearCommand();
+    await this.sendText(sendCommand, cmd);
   }
 
+  /** Steering: sends F, B, L, R, FL, FR, BL, BR, or S */
   async sendSteeringCommand(
     pedalPressed: boolean,
     driveMode: DriveMode,
@@ -50,40 +52,27 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
-    const baseSpeed = pedalPressed ? 60 : 0; // default joystick strength
-    const gear = this.getGearValue();
+    if (!pedalPressed) {
+      await this.sendText(sendCommand, "S");
+      return;
+    }
 
-    let leftSpeed = 0;
-    let rightSpeed = 0;
+    let cmd = "F";
 
-    // Direction logic
+    if (driveMode === "reverse" || this.currentGear === "Reverse") {
+      cmd = "B";
+    }
+
     if (direction === "left") {
-      leftSpeed = baseSpeed * 0.5;
-      rightSpeed = baseSpeed;
+      cmd = driveMode === "reverse" ? "BL" : "FL";
     } else if (direction === "right") {
-      leftSpeed = baseSpeed;
-      rightSpeed = baseSpeed * 0.5;
-    } else {
-      leftSpeed = rightSpeed = baseSpeed;
+      cmd = driveMode === "reverse" ? "BR" : "FR";
     }
 
-    // Reverse direction
-    if (driveMode === "reverse" || gear === "R") {
-      leftSpeed *= -1;
-      rightSpeed *= -1;
-    }
-
-    const json = {
-      type: "joystick",
-      leftSpeed,
-      rightSpeed,
-      gear,
-      clawOpen: this.clawOpen,
-    };
-
-    await this.sendJson(sendCommand, json);
+    await this.sendText(sendCommand, cmd);
   }
 
+  /** Accelerate: sends + then a movement command */
   async sendAccelerateCommand(
     currentSpeed: number,
     maxSpeed: number,
@@ -92,33 +81,21 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
+    await this.sendText(sendCommand, "+");
+
+    let cmd = "F";
+    if (this.currentGear === "Reverse") cmd = "B";
+
+    if (steeringDirection === "left") cmd = this.currentGear === "Reverse" ? "BL" : "FL";
+    else if (steeringDirection === "right") cmd = this.currentGear === "Reverse" ? "BR" : "FR";
+
+    await this.sendText(sendCommand, cmd);
+
     const newSpeed = Math.min(currentSpeed + speedStep, maxSpeed);
-    const gear = this.getGearValue();
-
-    // Determine left/right speeds based on steering
-    let leftSpeed = newSpeed;
-    let rightSpeed = newSpeed;
-    if (steeringDirection === "left") leftSpeed *= 0.5;
-    if (steeringDirection === "right") rightSpeed *= 0.5;
-
-    // Reverse gear handling
-    if (gear === "R") {
-      leftSpeed *= -1;
-      rightSpeed *= -1;
-    }
-
-    const json = {
-      type: "joystick",
-      leftSpeed,
-      rightSpeed,
-      gear,
-      clawOpen: this.clawOpen,
-    };
-
-    await this.sendJson(sendCommand, json);
     return newSpeed;
   }
 
+  /** Reverse acceleration: sends + then a reverse movement command */
   async sendReverseCommand(
     currentSpeed: number,
     maxSpeed: number,
@@ -127,71 +104,55 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
+    await this.sendText(sendCommand, "+");
+
+    let cmd = "B"; // default reverse
+    if (steeringDirection === "left") cmd = "BL";
+    else if (steeringDirection === "right") cmd = "BR";
+
+    await this.sendText(sendCommand, cmd);
+
     const newSpeed = Math.min(currentSpeed + speedStep, maxSpeed);
-    const gear = "R";
-
-    let leftSpeed = -newSpeed;
-    let rightSpeed = -newSpeed;
-    if (steeringDirection === "left") leftSpeed *= 0.5;
-    if (steeringDirection === "right") rightSpeed *= 0.5;
-
-    const json = {
-      type: "joystick",
-      leftSpeed,
-      rightSpeed,
-      gear,
-      clawOpen: this.clawOpen,
-    };
-
-    await this.sendJson(sendCommand, json);
     return newSpeed;
   }
 
+  /** Decelerate: sends - and possibly stop */
   async sendDecelerateCommand(
     currentSpeed: number,
     speedStep: number,
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<{ newSpeed: number; driveMode: DriveMode }> {
-    const newSpeed = Math.max(currentSpeed - speedStep, 0);
+    await this.sendText(sendCommand, "-");
 
+    const newSpeed = Math.max(currentSpeed - speedStep, 0);
     if (newSpeed <= 0) {
-      const json = { type: "stop" };
-      await this.sendJson(sendCommand, json);
+      await this.sendText(sendCommand, "S");
       return { newSpeed: 0, driveMode: "stopped" };
     }
-
-    const gear = this.getGearValue();
-    const json = {
-      type: "joystick",
-      leftSpeed: newSpeed,
-      rightSpeed: newSpeed,
-      gear,
-      clawOpen: this.clawOpen,
-    };
-    await this.sendJson(sendCommand, json);
 
     return { newSpeed, driveMode: "forward" };
   }
 
+  /** Brake: sends S to stop motors */
   async sendBrakeCommand(
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
-    const json = { type: "brake" };
-    await this.sendJson(sendCommand, json);
+    await this.sendText(sendCommand, "S");
   }
 
+  /** Toggle claw: sends O (open) or C (close) */
   async toggleClaw(
     open: boolean,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
     this.clawOpen = open;
-    const json = { type: "claw", clawOpen: this.clawOpen };
-    await this.sendJson(sendCommand, json);
+    const cmd = open ? "O" : "C";
+    await this.sendText(sendCommand, cmd);
   }
 
   hasSteeringChanged(): boolean {
-    return true; // simplified for now
+    return true;
   }
 }
