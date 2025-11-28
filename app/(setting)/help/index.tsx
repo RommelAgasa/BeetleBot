@@ -1,3 +1,4 @@
+import { useBleContext } from "@/src/context/BleContext";
 import { useNavigation } from "expo-router";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import TopNavBar from "../../components/TopNavBar";
@@ -7,6 +8,7 @@ import { renderIcon } from "./icons";
 
 export default function SettingHelp() {
   const navigation = useNavigation();
+  const { device } = useBleContext();
   
   const handleSettingPress = () => {
     navigation.goBack();
@@ -16,7 +18,7 @@ export default function SettingHelp() {
     <>
       <View style={settingPageStyle.container}>
         {/** Top Navigation Bar */}
-        <TopNavBar />
+        <TopNavBar device={device}/>
 
         {/** Breadcrumb */}
         <View style={styles.breadcrumb}>

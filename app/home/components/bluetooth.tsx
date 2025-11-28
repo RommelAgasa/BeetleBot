@@ -29,7 +29,10 @@ export default function Bluetooth({device}:any) {
     }).start();
 
     // Navigate
-    if (pathname !== "/search") {
+    if(displayText !== "Connect"){
+      router.push("/connection"); // if device is connected, go to connection page
+    }
+    else if (pathname !== "/search") {
       router.push("/search");
     }
   };

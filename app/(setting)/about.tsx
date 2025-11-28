@@ -1,3 +1,4 @@
+import { useBleContext } from "@/src/context/BleContext";
 import { useNavigation } from "@react-navigation/native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import TopNavBar from "../components/TopNavBar";
@@ -10,11 +11,13 @@ export default function SettingAbout() {
     navigation.goBack();
   };
 
+  const { device } = useBleContext();
+
   return (
     <>
       <View style={settingPageStyle.container}>
         {/** Top Navigation Bar */}
-        <TopNavBar />
+        <TopNavBar device={device}/>
 
         {/** Breadcrumb */}
         <View style={styles.breadcrumb}>

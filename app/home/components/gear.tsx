@@ -8,38 +8,30 @@ import {
   PanResponderInstance,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
 interface GearSelectorProps {
   onGearChange?: (gear: string) => void;
+  disabled?: boolean; // added
 }
 
-export default function GearSelector({ onGearChange }: GearSelectorProps) {
-  // Available gear positions (top to bottom)
+export default function GearSelector({ onGearChange, disabled }: GearSelectorProps) {
   const positions = ["Gear 2", "Gear 1", "Reverse"];
-
-  // Slider setup
-  const totalHeight = 160; // total track height
-  const handleHeight = 80; // handle size
-  const maxTravel = totalHeight - handleHeight; // movement range
-  const slotHeight = maxTravel / (positions.length - 1); // spacing between gears
-
-  // Default gear index (middle = Gear 1)
+  const totalHeight = 160;
+  const handleHeight = 80;
+  const maxTravel = totalHeight - handleHeight;
+  const slotHeight = maxTravel / (positions.length - 1);
   const [selectedIndex, setSelectedIndex] = useState<number>(1);
-
-  // Animation state for handle
   const translateY = useRef(new Animated.Value(selectedIndex * slotHeight)).current;
 
-  /**
-   * Change gear (animated + haptic)
-   */
   const changeGear = (index: number) => {
+    if (disabled) return; // prevent changing
     if (index < 0 || index >= positions.length) return;
 
     setSelectedIndex(index);
 
-    // Animate smooth snapping
     Animated.spring(translateY, {
       toValue: index * slotHeight,
       damping: 10,
@@ -48,73 +40,67 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
       useNativeDriver: true,
     }).start();
 
-    // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     console.log(positions[index]);
-    // Notify parent hook/service
     onGearChange?.(positions[index]);
   };
 
-  /**
-   * Handle dragging gestures
-   */
   const panResponder: PanResponderInstance = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
+  PanResponder.create({
+    onStartShouldSetPanResponder: () => !disabled, // only allow if not disabled
+    onMoveShouldSetPanResponder: (_, gesture) => !disabled && Math.abs(gesture.dy) > 10,
 
-      onPanResponderMove: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
-        const newY = gesture.dy + selectedIndex * slotHeight;
-        if (newY >= 0 && newY <= maxTravel) translateY.setValue(newY);
-      },
+    onPanResponderMove: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      if (disabled) return; // stop handle from moving
+      const newY = gesture.dy + selectedIndex * slotHeight;
+      if (newY >= 0 && newY <= maxTravel) translateY.setValue(newY);
+    },
 
-      onPanResponderRelease: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
-        const velocity = gesture.vy;
-        let targetIndex = selectedIndex;
+    onPanResponderRelease: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      if (disabled) return; // stop snapping
+      const velocity = gesture.vy;
+      let targetIndex = selectedIndex;
+      const dragThreshold = 35;
 
-        const dragThreshold = 35; // movement sensitivity
+      if (gesture.dy > dragThreshold && selectedIndex < positions.length - 1) targetIndex = selectedIndex + 1;
+      else if (gesture.dy < -dragThreshold && selectedIndex > 0) targetIndex = selectedIndex - 1;
 
-        // Dragged down (next gear)
-        if (gesture.dy > dragThreshold && selectedIndex < positions.length - 1) {
-          targetIndex = selectedIndex + 1;
-        }
-        //  Dragged up (previous gear)
-        else if (gesture.dy < -dragThreshold && selectedIndex > 0) {
-          targetIndex = selectedIndex - 1;
-        }
+      if (Math.abs(velocity) > 1.6) {
+        if (velocity > 0 && selectedIndex < positions.length - 1) targetIndex = selectedIndex + 1;
+        else if (velocity < 0 && selectedIndex > 0) targetIndex = selectedIndex - 1;
+      }
 
-        // Velocity-based flick
-        if (Math.abs(velocity) > 1.6) {
-          if (velocity > 0 && selectedIndex < positions.length - 1)
-            targetIndex = selectedIndex + 1;
-          else if (velocity < 0 && selectedIndex > 0)
-            targetIndex = selectedIndex - 1;
-        }
+      targetIndex = Math.max(0, Math.min(targetIndex, positions.length - 1));
+      changeGear(targetIndex);
+    },
+  })
+).current;
 
-        // Ensure valid range
-        targetIndex = Math.max(0, Math.min(targetIndex, positions.length - 1));
-
-        changeGear(targetIndex);
-      },
-    })
-  ).current;
 
   return (
+    <TouchableWithoutFeedback disabled={disabled}>
     <View style={styles.container}>
       {/* Gear labels */}
       <View style={styles.labelsContainer}>
         {positions.map((pos, i) => (
-          <View key={i} style={[styles.labelSlot, { height: handleHeight / 1.5 }]}>
-            <Text
-              style={[
-                styles.label,
-                selectedIndex === i && styles.labelActive,
-              ]}
-            >
-              {pos}
-            </Text>
-          </View>
+          <TouchableWithoutFeedback
+            key={i}
+            onPress={() => changeGear(i)}
+            disabled={disabled} // prevent label taps
+          >
+            <View style={[styles.labelSlot, { height: handleHeight / 1.5 }]}>
+              <Text
+                style={[
+                  styles.label,
+                  selectedIndex === i && styles.labelActive,
+                  disabled && { color: "#ccc" }, // gray out if disabled
+                ]}
+              >
+                {pos}
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
         ))}
       </View>
 
@@ -125,7 +111,7 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
             {...panResponder.panHandlers}
             style={[
               styles.sliderHandle,
-              { transform: [{ translateY }] },
+              { transform: [{ translateY }], opacity: disabled ? 0.5 : 1 }, // gray out handle
             ]}
           >
             <View style={styles.handleOval} />
@@ -133,12 +119,10 @@ export default function GearSelector({ onGearChange }: GearSelectorProps) {
         </View>
       </View>
     </View>
+    </TouchableWithoutFeedback>
   );
 }
 
-/**
- * Styles
- */
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
@@ -162,7 +146,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   labelActive: {
-    color: "#FF9E42", // highlight color
+    color: "#FF9E42",
     fontWeight: "700",
   },
   sliderWrapper: {

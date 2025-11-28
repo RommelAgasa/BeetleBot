@@ -5,14 +5,14 @@ import Svg, { Path } from "react-native-svg";
 interface ClawButtonProps {
   clawOpen: boolean;
   onToggleClaw: () => void;
+  disabled?: boolean; // added
 }
 
-export default function ClawButton({ clawOpen, onToggleClaw }: ClawButtonProps) {
+export default function ClawButton({ clawOpen, onToggleClaw, disabled }: ClawButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityOpen = useRef(new Animated.Value(clawOpen ? 1 : 0)).current;
   const opacityClosed = useRef(new Animated.Value(clawOpen ? 0 : 1)).current;
 
-  // Keep animation in sync with controller state
   useEffect(() => {
     Animated.parallel([
       Animated.timing(opacityOpen, {
@@ -29,19 +29,24 @@ export default function ClawButton({ clawOpen, onToggleClaw }: ClawButtonProps) 
   }, [clawOpen, opacityOpen, opacityClosed]);
 
   const handlePress = () => {
-    // Animate press feedback
+    if (disabled) return; // prevent toggle if disabled
+
     Animated.sequence([
       Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 5 }),
       Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 5 }),
     ]).start();
 
-    // Call parent handler to toggle claw
     onToggleClaw();
   };
 
   return (
-    <Pressable onPress={handlePress} style={styles.iconWrapper}>
-      <Animated.View style={[styles.svgContainer, { transform: [{ scale: scaleAnim }] }]}>
+    <Pressable onPress={handlePress} style={styles.iconWrapper} disabled={disabled}>
+      <Animated.View
+        style={[
+          styles.svgContainer,
+          { transform: [{ scale: scaleAnim }], opacity: disabled ? 0.5 : 1 }, // gray out if disabled
+        ]}
+      >
         <View style={styles.circleBackground} />
 
         {/* Open claw */}

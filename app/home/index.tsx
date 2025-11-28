@@ -150,13 +150,17 @@ export default function Home() {
 
           <View style={style.row2_right_container}>
             <View style={style.row2_right_container_left}>
-              <GearSelector onGearChange={(gear) => driving.handleGearChange(gear)}/>
+              <GearSelector 
+                onGearChange={(gear) => driving.handleGearChange(gear)}
+                disabled={!device} // disable if no device
+              />
             </View>
             <View style={style.row2_right_container_right}>
               <View style={style.claw}>
                 <ClawButton
                   clawOpen={driving.clawOpen}
                   onToggleClaw={driving.handleClawToggle}
+                  disabled={!device} // disable if no device
                 />
               </View>
               <View style={style.row2_right_accelaration_break_container}>

@@ -1,3 +1,4 @@
+import { useBleContext } from "@/src/context/BleContext";
 import { useRouter } from "expo-router";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import TopNavBar from "../components/TopNavBar";
@@ -9,20 +10,27 @@ import { settingPageStyle } from "./screen-style";
 export default function Setting() {
 
   const router = useRouter();
-
+  const { device } = useBleContext();
   const settingItems = [
-    { label: "Connect Beetlebot", id: "connect", route: "/"},
-    { label: "Help", id: "help", route: "/help"},
+    { label: "Connection", id: "connection", route: "/search" },
+    { label: "Help", id: "help", route: "/help" },
     { label: "About", id: "about", route: "/about" },
-  ];
+  ] as const;
 
   const handleSettingPress = (id: string, route: string) => {
-    // Handle navigation or action based on setting item
     console.log(`Pressed: ${id}`);
     if (route) {
-      router.push(route);
-      } else {
-        console.warn(`No route defined for ${id}`);
+      if(id === "connection") {
+        if(device) {
+          router.push("/connection");
+          return;
+        }
+        router.push("/search");
+        return;
+      }
+      router.push(route as any); // or cast to the specific union type
+    } else {
+      console.warn(`No route defined for ${id}`);
     }
   };
 
@@ -30,7 +38,7 @@ export default function Setting() {
     <>
       <View style={settingPageStyle.container}>
         {/** Top Navigation Bar */}
-        <TopNavBar />
+        <TopNavBar device={device}/>
 
         {/** Settings Header */}
         <View style={styles.settingsHeader}>
