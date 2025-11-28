@@ -1,7 +1,5 @@
-import React, { useRef } from "react";
-import { Animated, StyleSheet } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, StyleSheet, TouchableOpacity } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 type AcceleratorButtonProps = {
@@ -9,7 +7,6 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  simultaneousHandlers?: any;
 };
 
 export default function AcceleratorButton({
@@ -17,51 +14,51 @@ export default function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
-  simultaneousHandlers,
 }: AcceleratorButtonProps) {
+  const [accelerating, setAccelerating] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const disabled = !device;
 
-  // Press and hold => accelerate
-  const handlePressIn = () => {
+  const toggleAccelerate = () => {
     if (disabled) return;
 
+    setAccelerating(prev => !prev);
+  };
+
+  useEffect(() => {
     Animated.spring(scaleAnim, {
-      toValue: 0.9,
+      toValue: accelerating ? 0.9 : 1,
       useNativeDriver: true,
     }).start();
 
-    // Start accelerating
-    handleAccelerate();
-  };
+    if (accelerating) {
+      // Start continuous acceleration
+      handleAccelerate();
+      intervalRef.current = setInterval(() => {
+        handleAccelerate();
+      }, 100);
+    } else {
+      // Stop acceleration
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      handleDecelerate();
+      if (onPedalRelease) onPedalRelease();
+    }
 
-  // Release => decelerate gradually
-  const handlePressOut = () => {
-    if (disabled) return;
-
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-
-    // Start deceleration sequence
-    handleDecelerate();
-
-    if (onPedalRelease) onPedalRelease();
-  };
-
-  // Gesture recognizer: hold = accelerate, release = decelerate
-  const accelerateGesture = Gesture.LongPress()
-    .onStart(() => runOnJS(handlePressIn)())
-    .onEnd(() => runOnJS(handlePressOut)())
-    .enabled(!disabled);
-
-  if (simultaneousHandlers) {
-    accelerateGesture.simultaneousWithExternalGesture(simultaneousHandlers);
-  }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [accelerating]);
 
   return (
-    <GestureDetector gesture={accelerateGesture}>
+    <TouchableOpacity onPress={toggleAccelerate} disabled={disabled}>
       <Animated.View
         style={[
           styles.wrapper,
@@ -84,7 +81,7 @@ export default function AcceleratorButton({
           <Animated.View style={styles.pauseBar} />
         </Animated.View>
       </Animated.View>
-    </GestureDetector>
+    </TouchableOpacity>
   );
 }
 

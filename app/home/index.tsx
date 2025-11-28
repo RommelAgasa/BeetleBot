@@ -75,14 +75,18 @@ export default function Home() {
 
   useEffect(() => {
     if (device) {
-      sendCommand("/");
+      // Send initial commands to the device
+      sendCommand("/"); 
       sendCommand(`MAX:${maxSpeed}`);
-      driving.setSpeed(0);
+      
+      // Reset driving state safely
+      driving.resetDrivingState();
     }
   }, [device, sendCommand, maxSpeed]);
 
+
   useEffect(() => {
-    //console.log(device);
+    console.log(device);
 
     if (!device) {
       console.log("Device disconnected — resetting driving state.");
@@ -166,7 +170,6 @@ export default function Home() {
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleDecelerate()}
                     onPedalRelease={() => driving.handlePedalRelease()}
-                    simultaneousHandlers={steeringRef}
                   />
                 </View>
               </View>

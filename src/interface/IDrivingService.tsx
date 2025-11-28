@@ -132,4 +132,15 @@ export interface IDrivingService {
     commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void>;
+
+    /**
+   * Toggles the claw open/close state
+   * @param open - Whether to open (true) or close (false) the claw
+   * @param sendCommand - Function to send the JSON command to the car
+   */
+  toggleClaw(
+    open: boolean,
+    sendCommand: (c: string) => Promise<void>
+  ): Promise<void>;
+
 }

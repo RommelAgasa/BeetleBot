@@ -1,5 +1,5 @@
 import { DriveMode } from "@/hooks/useDrivingControls";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IDrivingService } from "../interface/IDrivingService";
 import { DefaultDrivingService } from "../services/DefaultDrivingService";
 import { SteeringDirection } from "../types/SteeringDirection";
@@ -9,7 +9,7 @@ interface UseDrivingControlsParams {
   commandMap: Record<string, string>;
   maxSpeed: number;
   speedStep: number;
-  drivingService: IDrivingService; // Optional: inject custom service
+  drivingService?: IDrivingService;
 }
 
 export const SteeringWheelController = ({
@@ -17,224 +17,114 @@ export const SteeringWheelController = ({
   commandMap,
   maxSpeed,
   speedStep,
-  drivingService = new DefaultDrivingService(), // Use default service if not provided
+  drivingService = new DefaultDrivingService(),
 }: UseDrivingControlsParams) => {
-  // State variables
-  const [speed, setSpeed] = useState<number>(0);
+  const [speed, setSpeed] = useState(0);
   const [driveMode, setDriveMode] = useState<DriveMode>("stopped");
   const [steeringDirection, setSteeringDirection] = useState<SteeringDirection>("center");
-  const [pedalPressed, setPedalPressed] = useState(false);
-  const [gear, setGear] = useState<string>("Gear 1"); //  Current gear
+  const [gear, setGear] = useState("Gear 1");
+  const [clawOpen, setClawOpen] = useState(false);
 
-  // Ref variables
-  const lastSteeringDirection = useRef<SteeringDirection>("center");
-  const lastDriveMode = useRef<DriveMode>("stopped");
-  const lastSteeringAngle = useRef<number>(0);
+  // Refs to keep latest state for intervals
+  const speedRef = useRef(speed);
+  const steeringRef = useRef(steeringDirection);
+  const driveModeRef = useRef(driveMode);
 
-  const STEERING_THRESHOLD = 10;
-  const ANGLE_CHANGE_THRESHOLD = 2;
+  useEffect(() => { speedRef.current = speed; }, [speed]);
+  useEffect(() => { steeringRef.current = steeringDirection; }, [steeringDirection]);
+  useEffect(() => { driveModeRef.current = driveMode; }, [driveMode]);
 
-   // =========================================
-  // 🔧 HANDLE GEAR CHANGE
-  // =========================================
+  const handleAccelerate = useCallback(async () => {
+    console.log("Accelerate called");
+    const newSpeed = await drivingService.sendAccelerateCommand(
+      speedRef.current,
+      maxSpeed,
+      speedStep,
+      steeringRef.current,
+      commandMap,
+      sendCommand
+    );
+    setSpeed(newSpeed);
+    setDriveMode("forward");
+  }, [maxSpeed, speedStep, drivingService, commandMap, sendCommand]);
+
+  const handleDecelerate = useCallback(async () => {
+    console.log("Decelerate called");
+    const result = await drivingService.sendDecelerateCommand(
+      speedRef.current,
+      speedStep,
+      commandMap,
+      sendCommand
+    );
+    setSpeed(result.newSpeed);
+    setDriveMode(result.driveMode);
+  }, [speedStep, drivingService, commandMap, sendCommand]);
+
+  const handlePedalRelease = useCallback(async () => {
+    console.log("Pedal released, sending stop");
+    await sendCommand(JSON.stringify({ type: "stop" }));
+    setDriveMode("stopped");
+    setSpeed(0);
+  }, [sendCommand]);
+
+  const handleBrake = useCallback(async () => {
+    await drivingService.sendBrakeCommand(commandMap, sendCommand);
+    setDriveMode("stopped");
+    setSpeed(0);
+  }, [drivingService, commandMap, sendCommand]);
+
   const handleGearChange = useCallback(
     async (newGear: string) => {
       setGear(newGear);
       await drivingService.sendGearChangeCommand(newGear, commandMap, sendCommand);
-
-      // Update drive mode automatically if needed
-      if (newGear === "Reverse") {
-        setDriveMode("reverse");
-      } else {
-        setDriveMode("forward");
-      }
-
-      console.log("✅ Gear changed to:", newGear);
+      setDriveMode(newGear === "Reverse" ? "reverse" : "forward");
     },
     [drivingService, commandMap, sendCommand]
   );
 
-  // =========================================================================
-  // STEERING HANDLER
-  // =========================================================================
-
   const handleSteeringChange = useCallback(
-    (angle: number) => {
-      // Use service to determine steering direction
-      const direction  = drivingService.getSteeringDirection(angle, STEERING_THRESHOLD);
+    async (angle: number) => {
+      let direction: SteeringDirection = "center";
+      if (angle < -10) direction = "left";
+      else if (angle > 10) direction = "right";
       setSteeringDirection(direction);
 
-      // Check if steering has meaningfully changed
-      if (
-        !drivingService.hasSteeringChanged(
-          angle,
-          lastSteeringAngle.current,
-          direction,
-          lastSteeringDirection.current,
-          ANGLE_CHANGE_THRESHOLD
-        )
-      ) {
-        return;
-      }
-
-      lastSteeringDirection.current = direction;
-      lastSteeringAngle.current = angle;
-
-      // Use service to send steering command
-      drivingService.sendSteeringCommand(
-        pedalPressed,
-        driveMode,
+      await drivingService.sendSteeringCommand(
+        true,
+        driveModeRef.current,
         direction,
         commandMap,
         sendCommand
       );
     },
-    [STEERING_THRESHOLD, ANGLE_CHANGE_THRESHOLD, pedalPressed, driveMode, drivingService, commandMap, sendCommand]
+    [commandMap, sendCommand, drivingService]
   );
 
-  // =========================================================================
-  // ACCELERATION HANDLER
-  // =========================================================================
-
-  const handleAccelerate = useCallback(() => {
-    setPedalPressed(true);
-    console.log('Accelarateeeeee');
-    
-
-    setDriveMode((prev) => {
-      if (prev !== "forward") {
-        // Send mode change commands
-        sendCommand(commandMap["F"]);
-        sendCommand(commandMap["+"]);
-      }
-      return "forward";
-    });
-
-    setSpeed((prev) => {
-      // Use service to send acceleration command
-      drivingService.sendAccelerateCommand(
-        prev,
-        maxSpeed,
-        speedStep,
-        steeringDirection,
-        commandMap,
-        sendCommand
-      );
-
-      // Return new speed
-      return prev < maxSpeed ? prev + speedStep : prev;
-    });
-
-    lastDriveMode.current = "forward";
-  }, [drivingService, commandMap, maxSpeed, speedStep, steeringDirection, sendCommand]);
-
-  // =========================================================================
-  // REVERSE HANDLER
-  // =========================================================================
-
-  const handleReverse = useCallback(() => {
-    setPedalPressed(true);
-
-    setDriveMode((prev) => {
-      if (prev !== "reverse") {
-        sendCommand(commandMap["B"]);
-        sendCommand(commandMap["+"]);
-      }
-      return "reverse";
-    });
-
-    setSpeed((prev) => {
-      // Use service to send reverse command
-      drivingService.sendReverseCommand(
-        prev,
-        maxSpeed,
-        speedStep,
-        steeringDirection,
-        commandMap,
-        sendCommand
-      );
-
-      return prev < maxSpeed ? prev + speedStep : prev;
-    });
-
-    lastDriveMode.current = "reverse";
-  }, [drivingService, commandMap, maxSpeed, speedStep, steeringDirection, sendCommand]);
-
-  // =========================================================================
-  // DECELERATION HANDLER
-  // =========================================================================
-
-  const handleDecelerate = useCallback(() => {
-    setSpeed((prev) => {
-      drivingService
-      .sendDecelerateCommand(prev, speedStep, commandMap, sendCommand)
-      .then((result) => {
-        if (result.driveMode === "stopped") {
-          setDriveMode("stopped");
-          lastDriveMode.current = "stopped";
-        }
-        setSpeed(result.newSpeed);
-      });
-
-      return prev > 0 ? prev - speedStep : 0;
-    });
-  }, [drivingService, commandMap, speedStep, sendCommand]);
-
-  // =========================================================================
-  // BRAKE HANDLER
-  // =========================================================================
-
-  const handleBrake = useCallback(() => {
-    setDriveMode("stopped");
-    lastDriveMode.current = "stopped";
-    drivingService.sendBrakeCommand(commandMap, sendCommand);
-  }, [drivingService, commandMap, sendCommand]);
-
-  // =========================================================================
-  // PEDAL RELEASE HANDLER
-  // =========================================================================
-
-  const handlePedalRelease = useCallback(() => {
-    setPedalPressed(false);
-
-    if (driveMode === "stopped") {
-      setDriveMode("stopped");
-      lastDriveMode.current = "stopped";
-      sendCommand(commandMap["S"]);
-    }
-  }, [driveMode, commandMap, sendCommand]);
-
-  // =========================================================================
-  // RESET HANDLER
-  // =========================================================================
+  const handleClawToggle = useCallback(async () => {
+    const newState = !clawOpen;
+    setClawOpen(newState);
+    await drivingService.toggleClaw(newState, sendCommand);
+  }, [clawOpen, drivingService, sendCommand]);
 
   const resetDrivingState = useCallback(() => {
     setSpeed(0);
     setDriveMode("stopped");
     setSteeringDirection("center");
-    setPedalPressed(false);
-    lastDriveMode.current = "stopped";
-    lastSteeringDirection.current = "center";
-    lastSteeringAngle.current = 0;
   }, []);
-
-  // =========================================================================
-  // RETURN HOOK API
-  // =========================================================================
 
   return {
     speed,
-    setSpeed,
     driveMode,
     steeringDirection,
     gear,
+    clawOpen,
+    handleAccelerate,
+    handleDecelerate,
+    handlePedalRelease,
+    handleBrake,
     handleGearChange,
     handleSteeringChange,
-    handleAccelerate,
-    handleReverse,
-    handleDecelerate,
-    handleBrake,
-    handlePedalRelease,
+    handleClawToggle,
     resetDrivingState,
   };
 };
