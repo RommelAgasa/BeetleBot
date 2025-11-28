@@ -34,31 +34,69 @@ export const SteeringWheelController = ({
   useEffect(() => { steeringRef.current = steeringDirection; }, [steeringDirection]);
   useEffect(() => { driveModeRef.current = driveMode; }, [driveMode]);
 
+
+  // Ref to store deceleration interval
+  const decelerationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const decelerationStep = 1.5; // smaller value = smoother, slower deceleration
+  const decelerationIntervalMs = 250; // interval between steps, adjust for smoothness
+
+  const handleDecelerate = useCallback((): Promise<{ newSpeed: number; driveMode: DriveMode }> => {
+    return new Promise((resolve) => {
+      // If there's already a deceleration interval, just return
+      if (decelerationIntervalRef.current) return;
+
+      decelerationIntervalRef.current = setInterval(async () => {
+        if (speedRef.current <= 0) {
+          clearInterval(decelerationIntervalRef.current!);
+          decelerationIntervalRef.current = null;
+          setSpeed(0);
+          setDriveMode("stopped");
+          await drivingService.sendBrakeCommand(commandMap, sendCommand); // ensure stopped
+          resolve({ newSpeed: 0, driveMode: "stopped" });
+          return;
+        }
+
+        // Decelerate by a small step
+        const result = await drivingService.sendDecelerateCommand(
+          speedRef.current,
+          decelerationStep,
+          commandMap,
+          sendCommand
+        );
+
+        setSpeed(result.newSpeed);
+        setDriveMode(result.driveMode);
+
+        // Resolve if fully stopped
+        if (result.newSpeed <= 0) {
+          clearInterval(decelerationIntervalRef.current!);
+          decelerationIntervalRef.current = null;
+          resolve(result);
+        }
+      }, decelerationIntervalMs);
+    });
+  }, [drivingService, commandMap, sendCommand]);
+
+
   const handleAccelerate = useCallback(async () => {
-    console.log("Accelerate called");
+    if (decelerationIntervalRef.current) {
+      clearInterval(decelerationIntervalRef.current);
+      decelerationIntervalRef.current = null;
+    }
+
     const newSpeed = await drivingService.sendAccelerateCommand(
       speedRef.current,
       maxSpeed,
-      speedStep,
+      speedStep, // keep normal step for acceleration
       steeringRef.current,
       commandMap,
       sendCommand
     );
+
     setSpeed(newSpeed);
     setDriveMode("forward");
   }, [maxSpeed, speedStep, drivingService, commandMap, sendCommand]);
 
-  const handleDecelerate = useCallback(async () => {
-    console.log("Decelerate called");
-    const result = await drivingService.sendDecelerateCommand(
-      speedRef.current,
-      speedStep,
-      commandMap,
-      sendCommand
-    );
-    setSpeed(result.newSpeed);
-    setDriveMode(result.driveMode);
-  }, [speedStep, drivingService, commandMap, sendCommand]);
 
   const handlePedalRelease = useCallback(async () => {
     console.log("Pedal released, sending stop");

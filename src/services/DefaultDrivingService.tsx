@@ -123,16 +123,21 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<{ newSpeed: number; driveMode: DriveMode }> {
-    await this.sendText(sendCommand, "-");
-
-    const newSpeed = Math.max(currentSpeed - speedStep, 0);
-    if (newSpeed <= 0) {
+    if (currentSpeed <= 0) {
       await this.sendText(sendCommand, "S");
       return { newSpeed: 0, driveMode: "stopped" };
     }
 
-    return { newSpeed, driveMode: "forward" };
+    await this.sendText(sendCommand, "-");
+
+    const newSpeed = Math.max(currentSpeed - speedStep, 0);
+
+    let driveMode: DriveMode = "forward";
+    if (newSpeed === 0) driveMode = "stopped";
+
+    return { newSpeed, driveMode };
   }
+
 
   /** Brake: sends S to stop motors */
   async sendBrakeCommand(

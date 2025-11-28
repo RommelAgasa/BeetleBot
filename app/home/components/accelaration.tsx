@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, StyleSheet, TouchableOpacity } from "react-native";
+import { Animated, StyleSheet, TouchableWithoutFeedback } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 type AcceleratorButtonProps = {
   device: any;
   handleAccelerate: () => void;
-  handleDecelerate: () => void;
+  handleDecelerate: () => Promise<{ newSpeed: number; driveMode?: string }>;
   onPedalRelease?: () => void;
+  onStop?: () => void;
 };
 
 export default function AcceleratorButton({
@@ -14,39 +15,65 @@ export default function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
+  onStop,
 }: AcceleratorButtonProps) {
-  const [accelerating, setAccelerating] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const disabled = !device;
 
-  const toggleAccelerate = () => {
+  const handlePressIn = () => {
     if (disabled) return;
 
-    setAccelerating(prev => !prev);
+    // Stop deceleration immediately
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    setIsPressed(true);
+  };
+
+  const handlePressOut = () => {
+    if (disabled) return;
+    setIsPressed(false);
   };
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
-      toValue: accelerating ? 0.9 : 1,
+      toValue: isPressed ? 0.9 : 1,
       useNativeDriver: true,
     }).start();
 
-    if (accelerating) {
-      // Start continuous acceleration
+    // Clear previous interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (isPressed) {
+      // Accelerate repeatedly while pressed
       handleAccelerate();
       intervalRef.current = setInterval(() => {
         handleAccelerate();
-      }, 100);
+      }, 150);
     } else {
-      // Stop acceleration
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      handleDecelerate();
-      if (onPedalRelease) onPedalRelease();
+      // Decelerate repeatedly while not pressed
+      intervalRef.current = setInterval(async () => {
+        try {
+          const result = await handleDecelerate();
+
+          if (result.newSpeed <= 0) {
+            clearInterval(intervalRef.current!);
+            intervalRef.current = null;
+            if (onPedalRelease) onPedalRelease();
+            if (onStop) onStop();
+          }
+        } catch (err) {
+          console.error("Deceleration error:", err);
+        }
+      }, 200); // slower interval for smooth deceleration
     }
 
     return () => {
@@ -55,10 +82,14 @@ export default function AcceleratorButton({
         intervalRef.current = null;
       }
     };
-  }, [accelerating]);
+  }, [isPressed, handleAccelerate, handleDecelerate, onPedalRelease, onStop]);
 
   return (
-    <TouchableOpacity onPress={toggleAccelerate} disabled={disabled}>
+    <TouchableWithoutFeedback
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+    >
       <Animated.View
         style={[
           styles.wrapper,
@@ -75,21 +106,17 @@ export default function AcceleratorButton({
           />
         </Svg>
 
-        {/* Orange Pause Bars */}
         <Animated.View style={styles.pauseWrapper}>
           <Animated.View style={styles.pauseBar} />
           <Animated.View style={styles.pauseBar} />
         </Animated.View>
       </Animated.View>
-    </TouchableOpacity>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  wrapper: { justifyContent: "center", alignItems: "center" },
   pauseWrapper: {
     position: "absolute",
     flexDirection: "row",
