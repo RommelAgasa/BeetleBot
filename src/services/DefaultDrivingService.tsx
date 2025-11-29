@@ -57,13 +57,17 @@ export class DefaultDrivingService implements IDrivingService {
       return;
     }
 
-    const isReverse = this.currentGear === "Reverse";
-
     let cmd = "F";
-    if (isReverse) cmd = "B";
 
-    if (direction === "left") cmd = isReverse ? "BL" : "FL";
-    else if (direction === "right") cmd = isReverse ? "BR" : "FR";
+    if (driveMode === "reverse" || this.currentGear === "Reverse") {
+      cmd = "B";
+    }
+
+    if (direction === "left") {
+      cmd = driveMode === "reverse" ? "BL" : "FL";
+    } else if (direction === "right") {
+      cmd = driveMode === "reverse" ? "BR" : "FR";
+    }
 
     await this.sendText(sendCommand, cmd);
   }
@@ -77,25 +81,19 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
-    const isReverse = this.currentGear === "Reverse";
-
-    // Always stop current motion before changing direction
-    await this.sendText(sendCommand, "S");
-
-    // Send acceleration command
     await this.sendText(sendCommand, "+");
 
-    let cmd = isReverse ? "B" : "F";
+    let cmd = "F";
+    if (this.currentGear === "Reverse") cmd = "B";
 
-    if (steeringDirection === "left") cmd = isReverse ? "BL" : "FL";
-    else if (steeringDirection === "right") cmd = isReverse ? "BR" : "FR";
+    if (steeringDirection === "left") cmd = this.currentGear === "Reverse" ? "BL" : "FL";
+    else if (steeringDirection === "right") cmd = this.currentGear === "Reverse" ? "BR" : "FR";
 
     await this.sendText(sendCommand, cmd);
 
     const newSpeed = Math.min(currentSpeed + speedStep, maxSpeed);
     return newSpeed;
   }
-
 
   /** Reverse acceleration: sends + then a reverse movement command */
   async sendReverseCommand(
@@ -156,7 +154,6 @@ export class DefaultDrivingService implements IDrivingService {
   ): Promise<void> {
     this.clawOpen = open;
     const cmd = open ? "O" : "C";
-    console.log("Toggling claw:", cmd);
     await this.sendText(sendCommand, cmd);
   }
 
