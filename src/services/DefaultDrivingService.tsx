@@ -35,42 +35,41 @@ export class DefaultDrivingService implements IDrivingService {
 
   /** Gear switching: sends 1, 2, or R */
   async sendGearChangeCommand(
-    gear: string,
-    _commandMap: Record<string, string>,
-    sendCommand: (c: string) => Promise<void>
-  ): Promise<void> {
-    this.currentGear = gear;
-    const cmd = this.getGearCommand();
-    await this.sendText(sendCommand, cmd);
-  }
+      gear: string,
+      _commandMap: Record<string, string>,
+      sendCommand: (c: string) => Promise<void>
+    ): Promise<void> {
+      this.currentGear = gear;
+      const cmd = this.getGearCommand();
+      await this.sendText(sendCommand, cmd);
+    }
 
-  /** Steering: sends F, B, L, R, FL, FR, BL, BR, or S */
-  async sendSteeringCommand(
+    /** Steering: sends F, B, L, R, FL, FR, BL, BR, or S */
+    async sendSteeringCommand(
     pedalPressed: boolean,
     driveMode: DriveMode,
     direction: SteeringDirection,
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
-    if (!pedalPressed) {
-      await this.sendText(sendCommand, "S");
+    // When the pedal is not pressed, only steer without movement
+    if (!pedalPressed || driveMode === "stopped") {
+      let cmd = "S";
+      if (direction === "left") cmd = "L";
+      else if (direction === "right") cmd = "R";
+      await this.sendText(sendCommand, cmd);
       return;
     }
 
-    let cmd = "F";
+    // Otherwise, send directional driving command (while moving)
+    let cmd = driveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
 
-    if (driveMode === "reverse" || this.currentGear === "Reverse") {
-      cmd = "B";
-    }
-
-    if (direction === "left") {
-      cmd = driveMode === "reverse" ? "BL" : "FL";
-    } else if (direction === "right") {
-      cmd = driveMode === "reverse" ? "BR" : "FR";
-    }
+    if (direction === "left") cmd = driveMode === "reverse" ? "BL" : "FL";
+    else if (direction === "right") cmd = driveMode === "reverse" ? "BR" : "FR";
 
     await this.sendText(sendCommand, cmd);
   }
+
 
   /** Accelerate: sends + then a movement command */
   async sendAccelerateCommand(
