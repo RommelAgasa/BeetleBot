@@ -77,6 +77,20 @@ export interface IDrivingService {
   ): Promise<{ newSpeed: number; driveMode: DriveMode }>;
 
   /**
+   * Sends a maintain-speed command to keep the BeetleBot moving
+   * at the current constant speed (no acceleration or deceleration).
+   *
+   * This is typically triggered when the pedal is released but
+   * the bot should continue moving forward or backward.
+   */
+  sendMaintainSpeedCommand(
+    currentSpeed: number,
+    steeringDirection: SteeringDirection,
+    commandMap: Record<string, string>,
+    sendCommand: (c: string) => Promise<void>
+  ): Promise<number>;
+
+  /**
    * Sends an immediate stop/brake command ("S")
    */
   sendBrakeCommand(

@@ -27,7 +27,7 @@ const DEFAULT_COMMANDS = {
 };
 
 export default function Home() {
-  // Use shared BLE instance
+  // BLE Context
   const {
     device,
     devicesMap,
@@ -41,12 +41,11 @@ export default function Home() {
 
   const [connectedDeviceId, setConnectedDeviceId] = useState<string | null>(null);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
-
   const [commandMap, setCommandMap] = useState({ ...DEFAULT_COMMANDS });
   const [editMap, setEditMap] = useState({ ...DEFAULT_COMMANDS });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"about" | "help" | "advanced">("about");
-  const [maxSpeed, setMaxSpeed] = useState<number>(60);
+  const [maxSpeed, setMaxSpeed] = useState<number>(100);
 
   const drivingService = useMemo(() => new DefaultDrivingService(), []);
   const driving = SteeringWheelController({
@@ -75,29 +74,23 @@ export default function Home() {
 
   useEffect(() => {
     if (device) {
-      // Send initial commands to the device
-      sendCommand("/"); 
+      // Send initial setup commands
+      sendCommand("/");
       sendCommand(`MAX:${maxSpeed}`);
-      
-      // Reset driving state safely
       driving.resetDrivingState();
     }
   }, [device, sendCommand, maxSpeed]);
 
-
   useEffect(() => {
-    console.log(device);
-
     if (!device) {
       console.log("Device disconnected — resetting driving state.");
       driving.resetDrivingState();
-      //handleDisconnect(); // only if there’s no device
     }
   }, [device]);
 
   useEffect(() => {
-    if(!device){
-        Alert.alert(
+    if (!device) {
+      Alert.alert(
         "Enable Bluetooth & Location",
         "Please make sure your Bluetooth and Location are turned on for BLE scanning."
       );
@@ -131,9 +124,8 @@ export default function Home() {
   return (
     <GestureHandlerRootView>
       <View style={style.container}>
-
-        {/** Top Navigation Bar */}
-        <TopNavBar device={device}/>
+        {/* Top Navigation Bar */}
+        <TopNavBar device={device} />
 
         {/* MAIN CONTROLS */}
         <View style={style.row}>
@@ -150,19 +142,21 @@ export default function Home() {
 
           <View style={style.row2_right_container}>
             <View style={style.row2_right_container_left}>
-              <GearSelector 
+              <GearSelector
                 onGearChange={(gear) => driving.handleGearChange(gear)}
-                disabled={!device} // disable if no device
+                disabled={!device}
               />
             </View>
+
             <View style={style.row2_right_container_right}>
               <View style={style.claw}>
                 <ClawButton
                   clawOpen={driving.clawOpen}
                   onToggleClaw={driving.handleClawToggle}
-                  disabled={!device} // disable if no device
+                  disabled={!device}
                 />
               </View>
+
               <View style={style.row2_right_accelaration_break_container}>
                 <View style={style.break}>
                   <BreakButton
@@ -171,12 +165,12 @@ export default function Home() {
                     simultaneousHandlers={steeringRef}
                   />
                 </View>
+
                 <View style={style.acceleration}>
                   <AcceleratorButton
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
-                    handleDecelerate={() => driving.handleDecelerate()}
-                    onPedalRelease={() => driving.handlePedalRelease()}
+                    handleMaintainSpeed={() => driving.handleMaintainSpeed()}
                   />
                 </View>
               </View>

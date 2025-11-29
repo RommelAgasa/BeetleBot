@@ -5,16 +5,14 @@ import Svg, { Path } from "react-native-svg";
 type AcceleratorButtonProps = {
   device: any;
   handleAccelerate: () => void;
-  handleDecelerate: () => Promise<{ newSpeed: number; driveMode?: string }>;
-  onPedalRelease?: () => void;
+  handleMaintainSpeed?: () => void;
   onStop?: () => void;
 };
 
 export default function AcceleratorButton({
   device,
   handleAccelerate,
-  handleDecelerate,
-  onPedalRelease,
+  handleMaintainSpeed,
   onStop,
 }: AcceleratorButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
@@ -25,13 +23,6 @@ export default function AcceleratorButton({
 
   const handlePressIn = () => {
     if (disabled) return;
-
-    // Stop deceleration immediately
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
     setIsPressed(true);
   };
 
@@ -46,7 +37,6 @@ export default function AcceleratorButton({
       useNativeDriver: true,
     }).start();
 
-    // Clear previous interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -59,21 +49,8 @@ export default function AcceleratorButton({
         handleAccelerate();
       }, 150);
     } else {
-      // Decelerate repeatedly while not pressed
-      intervalRef.current = setInterval(async () => {
-        try {
-          const result = await handleDecelerate();
-
-          if (result.newSpeed <= 0) {
-            clearInterval(intervalRef.current!);
-            intervalRef.current = null;
-            if (onPedalRelease) onPedalRelease();
-            if (onStop) onStop();
-          }
-        } catch (err) {
-          console.error("Deceleration error:", err);
-        }
-      }, 200); // slower interval for smooth deceleration
+      // Maintain current speed when released
+      if (handleMaintainSpeed) handleMaintainSpeed();
     }
 
     return () => {
@@ -82,7 +59,7 @@ export default function AcceleratorButton({
         intervalRef.current = null;
       }
     };
-  }, [isPressed, handleAccelerate, handleDecelerate, onPedalRelease, onStop]);
+  }, [isPressed, handleAccelerate, handleMaintainSpeed]);
 
   return (
     <TouchableWithoutFeedback

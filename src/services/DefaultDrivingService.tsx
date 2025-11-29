@@ -12,6 +12,8 @@ export class DefaultDrivingService implements IDrivingService {
 
   private currentGear: string = "Gear 1"; // "Gear 1" | "Gear 2" | "Reverse"
   private clawOpen = false;
+  private lastDriveMode: DriveMode = "stopped";
+  private lastSteeringDirection: SteeringDirection = "center";
 
   /** Converts gear label to Arduino command */
   private getGearCommand(): string {
@@ -80,6 +82,10 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
+    // Track steering direction for use in deceleration
+    this.lastSteeringDirection = steeringDirection;
+    this.lastDriveMode = "forward";
+
     await this.sendText(sendCommand, "+");
 
     let cmd = "F";
@@ -103,6 +109,10 @@ export class DefaultDrivingService implements IDrivingService {
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<number> {
+    // Track steering direction for use in deceleration
+    this.lastSteeringDirection = steeringDirection;
+    this.lastDriveMode = "reverse";
+
     await this.sendText(sendCommand, "+");
 
     let cmd = "B"; // default reverse
@@ -115,7 +125,7 @@ export class DefaultDrivingService implements IDrivingService {
     return newSpeed;
   }
 
-  /** Decelerate: sends - and possibly stop */
+  /** Decelerate: sends - and direction command to keep firmware aware */
   async sendDecelerateCommand(
     currentSpeed: number,
     speedStep: number,
@@ -124,18 +134,49 @@ export class DefaultDrivingService implements IDrivingService {
   ): Promise<{ newSpeed: number; driveMode: DriveMode }> {
     if (currentSpeed <= 0) {
       await this.sendText(sendCommand, "S");
+      this.lastDriveMode = "stopped";
       return { newSpeed: 0, driveMode: "stopped" };
     }
 
+    // Send speed decrease command
     await this.sendText(sendCommand, "-");
+
+    // Send + to keep wheels running
+    await this.sendText(sendCommand, "+");
+
+    // Also send direction command to keep firmware aware of direction during deceleration
+    let cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
+
+    if (this.lastSteeringDirection === "left") {
+      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "BL" : "FL";
+    } else if (this.lastSteeringDirection === "right") {
+      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "BR" : "FR";
+    }
+
+    await this.sendText(sendCommand, cmd);
 
     const newSpeed = Math.max(currentSpeed - speedStep, 0);
 
     let driveMode: DriveMode = "forward";
     if (newSpeed === 0) driveMode = "stopped";
+    this.lastDriveMode = driveMode;
 
     return { newSpeed, driveMode };
   }
+
+  // Inside DefaultDrivingService.ts
+  async sendMaintainSpeedCommand(
+    currentSpeed: number,
+    steering: SteeringDirection,
+    commandMap: Record<string, string>,
+    sendCommand: (cmd: string) => Promise<void>
+  ) {
+    // Simply keep sending forward command or steering adjustment
+    const command = commandMap["forward"] || "F";
+    await sendCommand(command);
+    return currentSpeed;
+  }
+
 
 
   /** Brake: sends S to stop motors */

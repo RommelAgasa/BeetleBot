@@ -25,87 +25,88 @@ export const SteeringWheelController = ({
   const [gear, setGear] = useState("Gear 1");
   const [clawOpen, setClawOpen] = useState(false);
 
-  // Refs to keep latest state for intervals
+  // Refs to keep latest state
   const speedRef = useRef(speed);
   const steeringRef = useRef(steeringDirection);
   const driveModeRef = useRef(driveMode);
+
+  const returnIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isBrakingRef = useRef(false);  // Flag to stop deceleration when brake is pressed
+  const normalSpeed = 60;  // base cruising speed
+  const returnStep = 2;    // how fast it returns to normalSpeed
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { steeringRef.current = steeringDirection; }, [steeringDirection]);
   useEffect(() => { driveModeRef.current = driveMode; }, [driveMode]);
 
-
-  // Ref to store deceleration interval
-  const decelerationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const decelerationStep = 1.5; // smaller value = smoother, slower deceleration
-  const decelerationIntervalMs = 250; // interval between steps, adjust for smoothness
-
-  const handleDecelerate = useCallback((): Promise<{ newSpeed: number; driveMode: DriveMode }> => {
-    return new Promise((resolve) => {
-      // If there's already a deceleration interval, just return
-      if (decelerationIntervalRef.current) return;
-
-      decelerationIntervalRef.current = setInterval(async () => {
-        if (speedRef.current <= 0) {
-          clearInterval(decelerationIntervalRef.current!);
-          decelerationIntervalRef.current = null;
-          setSpeed(0);
-          setDriveMode("stopped");
-          await drivingService.sendBrakeCommand(commandMap, sendCommand); // ensure stopped
-          resolve({ newSpeed: 0, driveMode: "stopped" });
-          return;
-        }
-
-        // Decelerate by a small step
-        const result = await drivingService.sendDecelerateCommand(
-          speedRef.current,
-          decelerationStep,
-          commandMap,
-          sendCommand
-        );
-
-        setSpeed(result.newSpeed);
-        setDriveMode(result.driveMode);
-
-        // Resolve if fully stopped
-        if (result.newSpeed <= 0) {
-          clearInterval(decelerationIntervalRef.current!);
-          decelerationIntervalRef.current = null;
-          resolve(result);
-        }
-      }, decelerationIntervalMs);
-    });
-  }, [drivingService, commandMap, sendCommand]);
-
-
+  // 🚀 Accelerate while pedal is pressed (boost effect)
   const handleAccelerate = useCallback(async () => {
-    if (decelerationIntervalRef.current) {
-      clearInterval(decelerationIntervalRef.current);
-      decelerationIntervalRef.current = null;
+    // Stop any "return to normal" interval if running
+    if (returnIntervalRef.current) {
+      clearInterval(returnIntervalRef.current);
+      returnIntervalRef.current = null;
     }
+    isBrakingRef.current = false;  // Clear brake flag when accelerating
 
     const newSpeed = await drivingService.sendAccelerateCommand(
       speedRef.current,
       maxSpeed,
-      speedStep, // keep normal step for acceleration
+      speedStep,
       steeringRef.current,
       commandMap,
       sendCommand
     );
 
+    console.log("Accelerating → newSpeed:", newSpeed); // <-- log here
     setSpeed(newSpeed);
     setDriveMode("forward");
   }, [maxSpeed, speedStep, drivingService, commandMap, sendCommand]);
 
+  // 🕹️ When pedal released → gradually go back to normal speed
+  const handleMaintainSpeed = useCallback(async () => {
+    if (speedRef.current <= normalSpeed || isBrakingRef.current) return;
 
-  const handlePedalRelease = useCallback(async () => {
-    console.log("Pedal released, sending stop");
-    await sendCommand(JSON.stringify({ type: "stop" }));
-    setDriveMode("stopped");
-    setSpeed(0);
-  }, [sendCommand]);
+    if (returnIntervalRef.current) {
+      clearInterval(returnIntervalRef.current);
+    }
 
+    returnIntervalRef.current = setInterval(async () => {
+      // If brake was pressed, stop the deceleration immediately
+      if (isBrakingRef.current) {
+        clearInterval(returnIntervalRef.current!);
+        returnIntervalRef.current = null;
+        return;
+      }
+
+      if (speedRef.current <= normalSpeed) {
+        clearInterval(returnIntervalRef.current!);
+        returnIntervalRef.current = null;
+        setSpeed(normalSpeed);
+        return;
+      }
+
+      const decelResult = await drivingService.sendDecelerateCommand(
+        speedRef.current,
+        returnStep,
+        commandMap,
+        sendCommand
+      );
+
+      console.log("Returning → currentSpeed:", decelResult.newSpeed); // <-- log here
+      setSpeed(decelResult.newSpeed);
+      setDriveMode("forward");
+    }, 200);
+  }, [drivingService, commandMap, sendCommand]);
+
+  // 🛑 Full stop (manual brake)
   const handleBrake = useCallback(async () => {
+    isBrakingRef.current = true;  // Set flag to stop deceleration
+
+    if (returnIntervalRef.current) {
+      clearInterval(returnIntervalRef.current);
+      returnIntervalRef.current = null;
+    }
+
     await drivingService.sendBrakeCommand(commandMap, sendCommand);
     setDriveMode("stopped");
     setSpeed(0);
@@ -157,8 +158,7 @@ export const SteeringWheelController = ({
     gear,
     clawOpen,
     handleAccelerate,
-    handleDecelerate,
-    handlePedalRelease,
+    handleMaintainSpeed, // now used to return to normal speed
     handleBrake,
     handleGearChange,
     handleSteeringChange,
