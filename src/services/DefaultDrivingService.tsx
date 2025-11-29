@@ -36,11 +36,13 @@ export class DefaultDrivingService implements IDrivingService {
   }
 
   /** Gear switching: sends 1, 2, or R */
-  async sendGearChangeCommand(
+    async sendGearChangeCommand(
       gear: string,
       _commandMap: Record<string, string>,
       sendCommand: (c: string) => Promise<void>
     ): Promise<void> {
+      // Stop motors before gear change to prevent unwanted movement
+      await this.sendText(sendCommand, "S");
       this.currentGear = gear;
       const cmd = this.getGearCommand();
       await this.sendText(sendCommand, cmd);
