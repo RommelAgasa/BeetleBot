@@ -32,8 +32,12 @@ export default function BluetoothRename() {
 
     try {
       setIsLoading(true);
+      console.log("Sending rename command:", `RENAME:${newName}`);
+      
       // Send rename command to BLE device
       await sendCommand(`RENAME:${newName}`);
+      
+      console.log("Rename command sent successfully");
       
       Alert.alert("Success", "Device name updated successfully", [
         {
