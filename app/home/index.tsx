@@ -77,7 +77,6 @@ export default function Home() {
     }
   }, [stopScan]);
 
-
   return (
     <GestureRegistryProvider>
       <GestureHandlerRootView>

@@ -124,7 +124,7 @@ function SteeringWheel(props: SteeringWheelProps, ref: any) {
       })
       .enabled(!!device);
 
-    // Add simultaneous gestures (like accelerator)
+    // Add simultaneous handlers to individual gestures BEFORE combining
     if (simultaneousHandlers && Array.isArray(simultaneousHandlers)) {
       simultaneousHandlers.forEach((handler: any) => {
         if (handler?.current) {
@@ -137,14 +137,14 @@ function SteeringWheel(props: SteeringWheelProps, ref: any) {
     return Gesture.Simultaneous(rotationGesture, panGesture);
   }, [device, simultaneousHandlers]);
 
-  // Delay ref binding to ensure the accelerator gesture exists first
+  // Bind gesture to ref - no delay needed
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!ref) return;
-      if (typeof ref === "function") ref(combinedGesture);
-      else ref.current = combinedGesture;
-    }, 50);
-    return () => clearTimeout(timeout);
+    if (!ref) return;
+    if (typeof ref === "function") {
+      ref(combinedGesture);
+    } else {
+      ref.current = combinedGesture;
+    }
   }, [ref, combinedGesture]);
 
   const animatedStyle = useAnimatedStyle(() => ({

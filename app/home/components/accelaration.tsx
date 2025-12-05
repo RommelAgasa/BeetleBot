@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -28,15 +28,16 @@ function AcceleratorButton(
 
   const disabled = !device;
 
-  const handlePressIn = () => {
+  //  Memoized press handlers
+  const handlePressIn = useCallback(() => {
     if (disabled) return;
     setAccelerating(true);
-  };
+  }, [disabled]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     if (disabled) return;
     setAccelerating(false);
-  };
+  }, [disabled]);
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -62,16 +63,17 @@ function AcceleratorButton(
         intervalRef.current = null;
       }
     };
-  }, [accelerating]);
+  }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
 
   const accelerateGesture = useMemo(() => {
     let gesture = Gesture.LongPress()
-      .minDuration(0) // ⬅️ instant start
+      .minDuration(0)
       .onStart(() => runOnJS(handlePressIn)())
       .onEnd(() => runOnJS(handlePressOut)())
       .onFinalize(() => runOnJS(handlePressOut)())
       .enabled(!disabled);
 
+    // Add simultaneous handlers to the gesture BEFORE returning
     if (simultaneousHandlers && Array.isArray(simultaneousHandlers)) {
       simultaneousHandlers.forEach((handler: any) => {
         if (handler?.current) {
@@ -83,14 +85,14 @@ function AcceleratorButton(
     return gesture;
   }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
 
-  // Delay binding slightly to ensure steering gesture is ready
+  // Bind gesture to ref immediately
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!ref) return;
-      if (typeof ref === "function") ref(accelerateGesture);
-      else ref.current = accelerateGesture;
-    }, 50);
-    return () => clearTimeout(timeout);
+    if (!ref) return;
+    if (typeof ref === "function") {
+      ref(accelerateGesture);
+    } else {
+      ref.current = accelerateGesture;
+    }
   }, [ref, accelerateGesture]);
 
   return (

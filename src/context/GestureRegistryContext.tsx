@@ -1,25 +1,26 @@
 import React, { createContext, useContext, useRef } from "react";
 
-type GestureRegistry = {
-  steeringGesture: React.MutableRefObject<any>;
-  acceleratorGesture: React.MutableRefObject<any>;
-};
+const GestureRegistryContext = createContext<any>(null);
 
-const GestureRegistryContext = createContext<GestureRegistry | null>(null);
+export const GestureRegistryProvider = ({ children }: any) => {
+  const gesturesRef = useRef<Record<string, any>>({});
 
-export function GestureRegistryProvider({ children }: { children: React.ReactNode }) {
-  const steeringGesture = useRef<any>(null);
-  const acceleratorGesture = useRef<any>(null);
+  const registerGesture = (name: string, gesture: any) => {
+    gesturesRef.current[name] = gesture;
+  };
+
+  const getGestures = (exclude?: string) => {
+    const gestures = Object.entries(gesturesRef.current)
+      .filter(([key]) => key !== exclude)
+      .map(([_, gesture]) => gesture);
+    return gestures;
+  };
 
   return (
-    <GestureRegistryContext.Provider value={{ steeringGesture, acceleratorGesture }}>
+    <GestureRegistryContext.Provider value={{ registerGesture, getGestures }}>
       {children}
     </GestureRegistryContext.Provider>
   );
-}
+};
 
-export function useGestureRegistry() {
-  const context = useContext(GestureRegistryContext);
-  if (!context) throw new Error("useGestureRegistry must be used within GestureRegistryProvider");
-  return context;
-}
+export const useGestureRegistry = () => useContext(GestureRegistryContext);
