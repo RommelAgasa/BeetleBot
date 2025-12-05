@@ -50,6 +50,7 @@ export default function Home() {
   const steeringRef = useRef<any>(null);
   const pedalRef = useRef<any>(null);
   const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
 
   useEffect(() => {
     if (device) {
