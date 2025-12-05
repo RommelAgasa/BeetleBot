@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -7,19 +7,22 @@ import Svg, { Path } from "react-native-svg";
 type AcceleratorButtonProps = {
   device: any;
   handleAccelerate: () => void;
-  handleMaintainSpeed?: () => void;
-  onStop?: () => void;
-  simultaneousHandlers?: any;
+  handleDecelerate: () => void;
+  onPedalRelease?: () => void;
+  simultaneousHandlers?: any[];
 };
 
-export default function AcceleratorButton({
-  device,
-  handleAccelerate,
-  handleMaintainSpeed,
-  onStop,
-  simultaneousHandlers,
-}: AcceleratorButtonProps) {
-  const [isPressed, setIsPressed] = useState(false);
+function AcceleratorButton(
+  {
+    device,
+    handleAccelerate,
+    handleDecelerate,
+    onPedalRelease,
+    simultaneousHandlers,
+  }: AcceleratorButtonProps,
+  ref: any
+) {
+  const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -27,34 +30,30 @@ export default function AcceleratorButton({
 
   const handlePressIn = () => {
     if (disabled) return;
-    setIsPressed(true);
+    setAccelerating(true);
   };
 
   const handlePressOut = () => {
     if (disabled) return;
-    setIsPressed(false);
+    setAccelerating(false);
   };
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
-      toValue: isPressed ? 0.9 : 1,
+      toValue: accelerating ? 0.9 : 1,
       useNativeDriver: true,
     }).start();
 
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (isPressed) {
-      // Accelerate repeatedly while pressed
+    if (accelerating) {
       handleAccelerate();
-      intervalRef.current = setInterval(() => {
-        handleAccelerate();
-      }, 150);
+      intervalRef.current = setInterval(() => handleAccelerate(), 100);
     } else {
-      // Maintain current speed when released
-      if (handleMaintainSpeed) handleMaintainSpeed();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      handleDecelerate();
+      if (onPedalRelease) onPedalRelease();
     }
 
     return () => {
@@ -63,15 +62,36 @@ export default function AcceleratorButton({
         intervalRef.current = null;
       }
     };
-  }, [isPressed, handleAccelerate, handleMaintainSpeed]);
+  }, [accelerating]);
 
-  const accelerateGesture = Gesture.LongPress()
-    .minDuration(1)
-    .onStart(() => runOnJS(handlePressIn)())
-    .onEnd(() => runOnJS(handlePressOut)())
-    .onFinalize(() => runOnJS(handlePressOut)())
-    .enabled(!disabled)
-    .simultaneousWithExternalGesture(simultaneousHandlers);
+  const accelerateGesture = useMemo(() => {
+    let gesture = Gesture.LongPress()
+      .minDuration(0) // ⬅️ instant start
+      .onStart(() => runOnJS(handlePressIn)())
+      .onEnd(() => runOnJS(handlePressOut)())
+      .onFinalize(() => runOnJS(handlePressOut)())
+      .enabled(!disabled);
+
+    if (simultaneousHandlers && Array.isArray(simultaneousHandlers)) {
+      simultaneousHandlers.forEach((handler: any) => {
+        if (handler?.current) {
+          gesture = gesture.simultaneousWithExternalGesture(handler.current);
+        }
+      });
+    }
+
+    return gesture;
+  }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
+
+  // Delay binding slightly to ensure steering gesture is ready
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!ref) return;
+      if (typeof ref === "function") ref(accelerateGesture);
+      else ref.current = accelerateGesture;
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [ref, accelerateGesture]);
 
   return (
     <GestureDetector gesture={accelerateGesture}>
@@ -100,8 +120,13 @@ export default function AcceleratorButton({
   );
 }
 
+export default forwardRef(AcceleratorButton);
+
 const styles = StyleSheet.create({
-  wrapper: { justifyContent: "center", alignItems: "center" },
+  wrapper: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   pauseWrapper: {
     position: "absolute",
     flexDirection: "row",

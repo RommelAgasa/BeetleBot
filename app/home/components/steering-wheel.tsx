@@ -1,29 +1,33 @@
-import React, { forwardRef, useEffect, useRef } from "react";
+import React, { forwardRef, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
 type SteeringWheelProps = {
   device: any;
-  commandMap: any;
-  sendCommand: (cmd: string) => void;
-  simultaneousHandlers?: any;
-  driveMode: "forward" | "reverse" | "stopped";
+  simultaneousHandlers?: any[];
   onSteeringChange: (angle: number) => void;
-  maxRotation?: number; // degrees
+  maxRotation?: number;
 };
 
 function SteeringWheel(props: SteeringWheelProps, ref: any) {
-  const { device, commandMap, sendCommand, simultaneousHandlers, driveMode, onSteeringChange, maxRotation = 135 } = props;
+  const {
+    device,
+    simultaneousHandlers,
+    onSteeringChange,
+    maxRotation = 135,
+  } = props;
+  
   const steeringAngle = useSharedValue(0);
   const lastSentAngle = useSharedValue(0);
   const cumulativeAngle = useSharedValue(0);
+  const lastRotationRef = useRef(0);
 
   const ROTATION_GAIN = 1;
   const PAN_GAIN = 0.8;
@@ -31,112 +35,116 @@ function SteeringWheel(props: SteeringWheelProps, ref: any) {
   const INTERP_SMOOTHING = 0.55;
   const SEND_THRESHOLD_DEG = 0.5;
 
-  const lastRotationRef = useRef(0);
+  const combinedGesture = useMemo(() => {
+    let rotationGesture = Gesture.Rotation()
+      .onBegin(() => {
+        lastRotationRef.current = 0;
+      })
+      .onUpdate((event) => {
+        if (!device) return;
 
-  const rotationGesture = Gesture.Rotation()
-    .onBegin(() => {
-      lastRotationRef.current = 0;
-    })
-    .onUpdate((event) => {
-      if (!device) return;
+        const deltaRad = event.rotation - lastRotationRef.current;
+        lastRotationRef.current = event.rotation;
+        const deltaDeg = (deltaRad * 180) / Math.PI;
+        const scaledDeltaDeg = deltaDeg * ROTATION_GAIN;
+        const proposed = cumulativeAngle.value + scaledDeltaDeg;
 
-      const deltaRad = event.rotation - lastRotationRef.current;
-      lastRotationRef.current = event.rotation;
-      const deltaDeg = (deltaRad * 180) / Math.PI;
+        if (proposed > maxRotation) cumulativeAngle.value = maxRotation;
+        else if (proposed < -maxRotation) cumulativeAngle.value = -maxRotation;
+        else cumulativeAngle.value = proposed;
 
-      const scaledDeltaDeg = deltaDeg * ROTATION_GAIN;
-      const proposed = cumulativeAngle.value + scaledDeltaDeg;
+        const target = cumulativeAngle.value;
+        const current = steeringAngle.value;
 
-      if (proposed > maxRotation) cumulativeAngle.value = maxRotation;
-      else if (proposed < -maxRotation) cumulativeAngle.value = -maxRotation;
-      else cumulativeAngle.value = proposed;
+        let newAngle: number;
+        if (Math.abs(target) < CENTER_DIRECT_THRESHOLD) {
+          newAngle = target;
+        } else {
+          newAngle = current + (target - current) * INTERP_SMOOTHING;
+        }
 
-      const target = cumulativeAngle.value;
-      const current = steeringAngle.value;
+        steeringAngle.value = newAngle;
 
-      let newAngle: number;
-      if (Math.abs(target) < CENTER_DIRECT_THRESHOLD) {
-        newAngle = target;
-      } else {
-        newAngle = current + (target - current) * INTERP_SMOOTHING;
-      }
+        if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
+          lastSentAngle.value = newAngle;
+          runOnJS(onSteeringChange)(newAngle);
+        }
+      })
+      .onEnd(() => {
+        if (!device) return;
+        steeringAngle.value = withSpring(0, {
+          damping: 14,
+          stiffness: 100,
+          mass: 1,
+        });
+        cumulativeAngle.value = 0;
+        lastSentAngle.value = 0;
+        runOnJS(onSteeringChange)(0);
+      })
+      .enabled(!!device);
 
-      steeringAngle.value = newAngle;
+    let panGesture = Gesture.Pan()
+      .onUpdate((event) => {
+        if (!device) return;
 
-      if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
-        lastSentAngle.value = newAngle;
-        runOnJS(onSteeringChange)(newAngle);
-      }
-    })
-    .onEnd(() => {
-      if (!device) return;
-      steeringAngle.value = withSpring(0, {
-        damping: 14,
-        stiffness: 100,
-        mass: 1,
+        const rawDeltaX = event.translationX;
+        const baseTargetAngle = rawDeltaX * PAN_GAIN;
+        const targetAngle = Math.max(
+          -maxRotation,
+          Math.min(maxRotation, baseTargetAngle)
+        );
+
+        const current = steeringAngle.value;
+        let newAngle: number;
+
+        if (Math.abs(targetAngle) < CENTER_DIRECT_THRESHOLD) {
+          newAngle = targetAngle;
+        } else {
+          newAngle = current + (targetAngle - current) * INTERP_SMOOTHING;
+        }
+
+        steeringAngle.value = newAngle;
+        cumulativeAngle.value = newAngle;
+
+        if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
+          lastSentAngle.value = newAngle;
+          runOnJS(onSteeringChange)(newAngle);
+        }
+      })
+      .onEnd(() => {
+        if (!device) return;
+        steeringAngle.value = withSpring(0, {
+          damping: 15,
+          stiffness: 120,
+          mass: 1,
+        });
+        cumulativeAngle.value = 0;
+        lastSentAngle.value = 0;
+        runOnJS(onSteeringChange)(0);
+      })
+      .enabled(!!device);
+
+    // Add simultaneous gestures (like accelerator)
+    if (simultaneousHandlers && Array.isArray(simultaneousHandlers)) {
+      simultaneousHandlers.forEach((handler: any) => {
+        if (handler?.current) {
+          rotationGesture = rotationGesture.simultaneousWithExternalGesture(handler.current);
+          panGesture = panGesture.simultaneousWithExternalGesture(handler.current);
+        }
       });
-      cumulativeAngle.value = 0;
-      lastSentAngle.value = 0;
-      runOnJS(onSteeringChange)(0);
-    })
-    .enabled(!!device)
-    .simultaneousWithExternalGesture(simultaneousHandlers);
-
-  const panGesture = Gesture.Pan()
-    .onUpdate((event) => {
-      if (!device) return;
-
-      const rawDeltaX = event.translationX;
-      const baseTargetAngle = rawDeltaX * PAN_GAIN;
-      const targetAngle = Math.max(
-        -maxRotation,
-        Math.min(maxRotation, baseTargetAngle)
-      );
-
-      const current = steeringAngle.value;
-      let newAngle: number;
-
-      if (Math.abs(targetAngle) < CENTER_DIRECT_THRESHOLD) {
-        newAngle = targetAngle;
-      } else {
-        newAngle = current + (targetAngle - current) * INTERP_SMOOTHING;
-      }
-
-      steeringAngle.value = newAngle;
-      cumulativeAngle.value = newAngle;
-
-      if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
-        lastSentAngle.value = newAngle;
-        runOnJS(onSteeringChange)(newAngle);
-      }
-    })
-    .onEnd(() => {
-      if (!device) return;
-      steeringAngle.value = withSpring(0, {
-        damping: 15,
-        stiffness: 120,
-        mass: 1,
-      });
-      cumulativeAngle.value = 0;
-      lastSentAngle.value = 0;
-      runOnJS(onSteeringChange)(0);
-    })
-    .enabled(!!device)
-    .simultaneousWithExternalGesture(simultaneousHandlers);
-
-  const combinedGesture = Gesture.Simultaneous(rotationGesture, panGesture);
-
-  useEffect(() => {
-    if (!ref) return;
-    try {
-      if (typeof ref === "function") {
-        ref(combinedGesture);
-      } else {
-        ref.current = combinedGesture;
-      }
-    } catch (e) {
-      // ignore
     }
+
+    return Gesture.Simultaneous(rotationGesture, panGesture);
+  }, [device, simultaneousHandlers]);
+
+  // Delay ref binding to ensure the accelerator gesture exists first
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!ref) return;
+      if (typeof ref === "function") ref(combinedGesture);
+      else ref.current = combinedGesture;
+    }, 50);
+    return () => clearTimeout(timeout);
   }, [ref, combinedGesture]);
 
   const animatedStyle = useAnimatedStyle(() => ({
