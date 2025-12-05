@@ -1,13 +1,17 @@
 import * as Haptics from "expo-haptics";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 interface GearSelectorProps {
   onGearChange?: (gear: string) => void;
@@ -26,24 +30,26 @@ export default function GearSelector({
   const maxTravel = totalHeight - handleHeight;
   const slotHeight = maxTravel / (positions.length - 1);
   const [selectedIndex, setSelectedIndex] = useState<number>(1);
-  const translateY = useRef(new Animated.Value(selectedIndex * slotHeight)).current;
+  
+  const translateY = useSharedValue(selectedIndex * slotHeight);
 
   const changeGear = (index: number) => {
     if (disabled) return;
     if (index < 0 || index >= positions.length) return;
 
     setSelectedIndex(index);
-
-    Animated.spring(translateY, {
-      toValue: index * slotHeight,
+    translateY.value = withSpring(index * slotHeight, {
       damping: 10,
       mass: 1,
       stiffness: 100,
-      useNativeDriver: true,
-    }).start();
+    });
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onGearChange?.(positions[index]);
+  };
+
+  const setTranslateYJS = (val: number) => {
+    translateY.value = val;
   };
 
   const panGesture = Gesture.Pan()
@@ -51,7 +57,7 @@ export default function GearSelector({
       if (disabled) return;
       const newY = event.translationY + selectedIndex * slotHeight;
       if (newY >= 0 && newY <= maxTravel) {
-        translateY.setValue(newY);
+        translateY.value = newY;
       }
     })
     .onEnd((event) => {
@@ -79,6 +85,10 @@ export default function GearSelector({
     })
     .enabled(!disabled)
     .simultaneousWithExternalGesture(simultaneousHandlers);
+
+  const animatedHandleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   return (
     <View style={styles.container}>
@@ -109,7 +119,8 @@ export default function GearSelector({
             <Animated.View
               style={[
                 styles.sliderHandle,
-                { transform: [{ translateY }], opacity: disabled ? 0.5 : 1 },
+                animatedHandleStyle,
+                { opacity: disabled ? 0.5 : 1 },
               ]}
             >
               <View style={styles.handleOval} />

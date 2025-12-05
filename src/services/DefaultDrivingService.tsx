@@ -48,14 +48,14 @@ export class DefaultDrivingService implements IDrivingService {
       await this.sendText(sendCommand, cmd);
     }
 
-    /** Steering: sends F, B, L, R, FL, FR, BL, BR, or S */
-    async sendSteeringCommand(
-    pedalPressed: boolean,
-    driveMode: DriveMode,
-    direction: SteeringDirection,
-    _commandMap: Record<string, string>,
-    sendCommand: (c: string) => Promise<void>
-  ): Promise<void> {
+  /** Steering: sends F, B, L, R or S */
+  async sendSteeringCommand(
+      pedalPressed: boolean,
+      driveMode: DriveMode,
+      direction: SteeringDirection,
+      _commandMap: Record<string, string>,
+      sendCommand: (c: string) => Promise<void>
+    ): Promise<void> {
     // When the pedal is not pressed, only steer without movement
     if (!pedalPressed || driveMode === "stopped") {
       let cmd = "S";
@@ -68,8 +68,8 @@ export class DefaultDrivingService implements IDrivingService {
     // Otherwise, send directional driving command (while moving)
     let cmd = driveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
 
-    if (direction === "left") cmd = driveMode === "reverse" ? "BL" : "FL";
-    else if (direction === "right") cmd = driveMode === "reverse" ? "BR" : "FR";
+    if (direction === "left") cmd = driveMode === "reverse" ? "L" : "L";
+    else if (direction === "right") cmd = driveMode === "reverse" ? "R" : "R";
 
     await this.sendText(sendCommand, cmd);
   }
@@ -93,8 +93,8 @@ export class DefaultDrivingService implements IDrivingService {
     let cmd = "F";
     if (this.currentGear === "Reverse") cmd = "B";
 
-    if (steeringDirection === "left") cmd = this.currentGear === "Reverse" ? "BL" : "FL";
-    else if (steeringDirection === "right") cmd = this.currentGear === "Reverse" ? "BR" : "FR";
+    if (steeringDirection === "left") cmd = this.currentGear === "Reverse" ? "L" : "L";
+    else if (steeringDirection === "right") cmd = this.currentGear === "Reverse" ? "R" : "R";
 
     await this.sendText(sendCommand, cmd);
 

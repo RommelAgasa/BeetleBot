@@ -1,11 +1,11 @@
-import React, { useRef } from "react";
+import React, { forwardRef, useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
 } from "react-native-reanimated";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
@@ -19,15 +19,8 @@ type SteeringWheelProps = {
   maxRotation?: number; // degrees
 };
 
-export default function SteeringWheel({
-  device,
-  commandMap,
-  sendCommand,
-  simultaneousHandlers,
-  driveMode,
-  onSteeringChange,
-  maxRotation = 135,
-}: SteeringWheelProps) {
+function SteeringWheel(props: SteeringWheelProps, ref: any) {
+  const { device, commandMap, sendCommand, simultaneousHandlers, driveMode, onSteeringChange, maxRotation = 135 } = props;
   const steeringAngle = useSharedValue(0);
   const lastSentAngle = useSharedValue(0);
   const cumulativeAngle = useSharedValue(0);
@@ -133,6 +126,19 @@ export default function SteeringWheel({
 
   const combinedGesture = Gesture.Simultaneous(rotationGesture, panGesture);
 
+  useEffect(() => {
+    if (!ref) return;
+    try {
+      if (typeof ref === "function") {
+        ref(combinedGesture);
+      } else {
+        ref.current = combinedGesture;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [ref, combinedGesture]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${steeringAngle.value}deg` }],
   }));
@@ -170,3 +176,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#e8e8e8",
   },
 });
+
+export default forwardRef(SteeringWheel);
