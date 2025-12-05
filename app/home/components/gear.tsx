@@ -2,22 +2,24 @@ import * as Haptics from "expo-haptics";
 import React, { useRef, useState } from "react";
 import {
   Animated,
-  GestureResponderEvent,
-  PanResponder,
-  PanResponderGestureState,
-  PanResponderInstance,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 
 interface GearSelectorProps {
   onGearChange?: (gear: string) => void;
-  disabled?: boolean; // added
+  disabled?: boolean;
+  simultaneousHandlers?: any;
 }
 
-export default function GearSelector({ onGearChange, disabled }: GearSelectorProps) {
+export default function GearSelector({
+  onGearChange,
+  disabled,
+  simultaneousHandlers,
+}: GearSelectorProps) {
   const positions = ["Gear 2", "Gear 1", "Reverse"];
   const totalHeight = 160;
   const handleHeight = 80;
@@ -27,7 +29,7 @@ export default function GearSelector({ onGearChange, disabled }: GearSelectorPro
   const translateY = useRef(new Animated.Value(selectedIndex * slotHeight)).current;
 
   const changeGear = (index: number) => {
-    if (disabled) return; // prevent changing
+    if (disabled) return;
     if (index < 0 || index >= positions.length) return;
 
     setSelectedIndex(index);
@@ -41,85 +43,81 @@ export default function GearSelector({ onGearChange, disabled }: GearSelectorPro
     }).start();
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    console.log(positions[index]);
     onGearChange?.(positions[index]);
   };
 
-  const panResponder: PanResponderInstance = useRef(
-  PanResponder.create({
-    onStartShouldSetPanResponder: () => !disabled, // only allow if not disabled
-    onMoveShouldSetPanResponder: (_, gesture) => !disabled && Math.abs(gesture.dy) > 10,
-
-    onPanResponderMove: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
-      if (disabled) return; // stop handle from moving
-      const newY = gesture.dy + selectedIndex * slotHeight;
-      if (newY >= 0 && newY <= maxTravel) translateY.setValue(newY);
-    },
-
-    onPanResponderRelease: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
-      if (disabled) return; // stop snapping
-      const velocity = gesture.vy;
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      if (disabled) return;
+      const newY = event.translationY + selectedIndex * slotHeight;
+      if (newY >= 0 && newY <= maxTravel) {
+        translateY.setValue(newY);
+      }
+    })
+    .onEnd((event) => {
+      if (disabled) return;
+      const velocity = event.velocityY;
       let targetIndex = selectedIndex;
       const dragThreshold = 35;
 
-      if (gesture.dy > dragThreshold && selectedIndex < positions.length - 1) targetIndex = selectedIndex + 1;
-      else if (gesture.dy < -dragThreshold && selectedIndex > 0) targetIndex = selectedIndex - 1;
+      if (event.translationY > dragThreshold && selectedIndex < positions.length - 1) {
+        targetIndex = selectedIndex + 1;
+      } else if (event.translationY < -dragThreshold && selectedIndex > 0) {
+        targetIndex = selectedIndex - 1;
+      }
 
       if (Math.abs(velocity) > 1.6) {
-        if (velocity > 0 && selectedIndex < positions.length - 1) targetIndex = selectedIndex + 1;
-        else if (velocity < 0 && selectedIndex > 0) targetIndex = selectedIndex - 1;
+        if (velocity > 0 && selectedIndex < positions.length - 1) {
+          targetIndex = selectedIndex + 1;
+        } else if (velocity < 0 && selectedIndex > 0) {
+          targetIndex = selectedIndex - 1;
+        }
       }
 
       targetIndex = Math.max(0, Math.min(targetIndex, positions.length - 1));
-      changeGear(targetIndex);
-    },
-  })
-).current;
-
+      runOnJS(changeGear)(targetIndex);
+    })
+    .enabled(!disabled)
+    .simultaneousWithExternalGesture(simultaneousHandlers);
 
   return (
-    <TouchableWithoutFeedback disabled={disabled}>
     <View style={styles.container}>
       {/* Gear labels */}
       <View style={styles.labelsContainer}>
         {positions.map((pos, i) => (
-          <TouchableWithoutFeedback
+          <View
             key={i}
-            onPress={() => changeGear(i)}
-            disabled={disabled} // prevent label taps
+            style={[styles.labelSlot, { height: handleHeight / 1.5 }]}
           >
-            <View style={[styles.labelSlot, { height: handleHeight / 1.5 }]}>
-              <Text
-                style={[
-                  styles.label,
-                  selectedIndex === i && styles.labelActive,
-                  disabled && { color: "#ccc" }, // gray out if disabled
-                ]}
-              >
-                {pos}
-              </Text>
-            </View>
-          </TouchableWithoutFeedback>
+            <Text
+              style={[
+                styles.label,
+                selectedIndex === i && styles.labelActive,
+                disabled && { color: "#ccc" },
+              ]}
+            >
+              {pos}
+            </Text>
+          </View>
         ))}
       </View>
 
       {/* Gear track + handle */}
       <View style={styles.sliderWrapper}>
         <View style={[styles.sliderTrack, { height: totalHeight }]}>
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={[
-              styles.sliderHandle,
-              { transform: [{ translateY }], opacity: disabled ? 0.5 : 1 }, // gray out handle
-            ]}
-          >
-            <View style={styles.handleOval} />
-          </Animated.View>
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                styles.sliderHandle,
+                { transform: [{ translateY }], opacity: disabled ? 0.5 : 1 },
+              ]}
+            >
+              <View style={styles.handleOval} />
+            </Animated.View>
+          </GestureDetector>
         </View>
       </View>
     </View>
-    </TouchableWithoutFeedback>
   );
 }
 

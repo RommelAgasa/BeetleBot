@@ -42,7 +42,7 @@ export class DefaultDrivingService implements IDrivingService {
       sendCommand: (c: string) => Promise<void>
     ): Promise<void> {
       // Stop motors before gear change to prevent unwanted movement
-      await this.sendText(sendCommand, "S");
+      //await this.sendText(sendCommand, "S");
       this.currentGear = gear;
       const cmd = this.getGearCommand();
       await this.sendText(sendCommand, cmd);
@@ -150,9 +150,9 @@ export class DefaultDrivingService implements IDrivingService {
     let cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
 
     if (this.lastSteeringDirection === "left") {
-      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "BL" : "FL";
+      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "L" : "L";
     } else if (this.lastSteeringDirection === "right") {
-      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "BR" : "FR";
+      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "R" : "R";
     }
 
     await this.sendText(sendCommand, cmd);

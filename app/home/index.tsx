@@ -137,6 +137,7 @@ export default function Home() {
               simultaneousHandlers={pedalRef}
               driveMode={driving.driveMode}
               onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
+              ref={steeringRef}
             />
           </View>
 
@@ -145,6 +146,7 @@ export default function Home() {
               <GearSelector
                 onGearChange={(gear) => driving.handleGearChange(gear)}
                 disabled={!device}
+                simultaneousHandlers={steeringRef}
               />
             </View>
 
@@ -154,6 +156,7 @@ export default function Home() {
                   clawOpen={driving.clawOpen}
                   onToggleClaw={driving.handleClawToggle}
                   disabled={!device}
+                  simultaneousHandlers={steeringRef}
                 />
               </View>
 
@@ -171,6 +174,7 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleMaintainSpeed={() => driving.handleMaintainSpeed()}
+                    simultaneousHandlers={steeringRef}
                   />
                 </View>
               </View>

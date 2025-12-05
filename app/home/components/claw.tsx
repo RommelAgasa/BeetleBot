@@ -1,14 +1,22 @@
 import { useEffect, useRef } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 interface ClawButtonProps {
   clawOpen: boolean;
   onToggleClaw: () => void;
-  disabled?: boolean; // added
+  disabled?: boolean;
+  simultaneousHandlers?: any;
 }
 
-export default function ClawButton({ clawOpen, onToggleClaw, disabled }: ClawButtonProps) {
+export default function ClawButton({
+  clawOpen,
+  onToggleClaw,
+  disabled,
+  simultaneousHandlers,
+}: ClawButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityOpen = useRef(new Animated.Value(clawOpen ? 1 : 0)).current;
   const opacityClosed = useRef(new Animated.Value(clawOpen ? 0 : 1)).current;
@@ -29,7 +37,7 @@ export default function ClawButton({ clawOpen, onToggleClaw, disabled }: ClawBut
   }, [clawOpen, opacityOpen, opacityClosed]);
 
   const handlePress = () => {
-    if (disabled) return; // prevent toggle if disabled
+    if (disabled) return;
 
     Animated.sequence([
       Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 5 }),
@@ -39,12 +47,17 @@ export default function ClawButton({ clawOpen, onToggleClaw, disabled }: ClawBut
     onToggleClaw();
   };
 
+  const clawGesture = Gesture.Tap()
+    .onStart(() => runOnJS(handlePress)())
+    .enabled(!disabled)
+    .simultaneousWithExternalGesture(simultaneousHandlers);
+
   return (
-    <Pressable onPress={handlePress} style={styles.iconWrapper} disabled={disabled}>
+    <GestureDetector gesture={clawGesture}>
       <Animated.View
         style={[
           styles.svgContainer,
-          { transform: [{ scale: scaleAnim }], opacity: disabled ? 0.5 : 1 }, // gray out if disabled
+          { transform: [{ scale: scaleAnim }], opacity: disabled ? 0.5 : 1 },
         ]}
       >
         <View style={styles.circleBackground} />
@@ -69,12 +82,11 @@ export default function ClawButton({ clawOpen, onToggleClaw, disabled }: ClawBut
           </Svg>
         </Animated.View>
       </Animated.View>
-    </Pressable>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  iconWrapper: { padding: 7 },
   svgContainer: {
     width: 77,
     height: 78,

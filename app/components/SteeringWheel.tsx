@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useImperativeHandle } from "react";
 import { Image, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -9,21 +9,24 @@ import Animated, {
 } from "react-native-reanimated";
 import styles from "../styles";
 
-export default function SteeringWheel({
-  device,
-  commandMap,
-  sendCommand,
-  simultaneousHandlers,
-  driveMode,
-  onSteeringChange,
-}: {
-  device: any;
-  commandMap: any;
-  sendCommand: (cmd: string) => void;
-  simultaneousHandlers?: any;
-  driveMode: "forward" | "reverse" | "stopped";
-  onSteeringChange: (angle: number) => void;
-}) {
+const SteeringWheel = React.forwardRef((
+  {
+    device,
+    commandMap,
+    sendCommand,
+    simultaneousHandlers,
+    driveMode,
+    onSteeringChange,
+  }: {
+    device: any;
+    commandMap: any;
+    sendCommand: (cmd: string) => void;
+    simultaneousHandlers?: any;
+    driveMode: "forward" | "reverse" | "stopped";
+    onSteeringChange: (angle: number) => void;
+  },
+  ref
+) => {
   const steeringAngle = useSharedValue(0);
   const lastSentAngle = useSharedValue(0);
   const WHEEL_SIZE = 180; // px
@@ -134,6 +137,10 @@ export default function SteeringWheel({
     panGesture.simultaneousWithExternalGesture(simultaneousHandlers)
   );
 
+  useImperativeHandle(ref, () => ({
+    gesture: combinedGesture,
+  }));
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${steeringAngle.value}deg` }],
   }));
@@ -191,4 +198,8 @@ export default function SteeringWheel({
       </View>
     </View>
   );
-}
+});
+
+SteeringWheel.displayName = 'SteeringWheel';
+
+export default SteeringWheel;

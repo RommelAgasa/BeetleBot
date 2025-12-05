@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, StyleSheet, TouchableWithoutFeedback } from "react-native";
+import { Animated, StyleSheet } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 type AcceleratorButtonProps = {
@@ -7,6 +9,7 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleMaintainSpeed?: () => void;
   onStop?: () => void;
+  simultaneousHandlers?: any;
 };
 
 export default function AcceleratorButton({
@@ -14,6 +17,7 @@ export default function AcceleratorButton({
   handleAccelerate,
   handleMaintainSpeed,
   onStop,
+  simultaneousHandlers,
 }: AcceleratorButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -61,12 +65,16 @@ export default function AcceleratorButton({
     };
   }, [isPressed, handleAccelerate, handleMaintainSpeed]);
 
+  const accelerateGesture = Gesture.LongPress()
+    .minDuration(1)
+    .onStart(() => runOnJS(handlePressIn)())
+    .onEnd(() => runOnJS(handlePressOut)())
+    .onFinalize(() => runOnJS(handlePressOut)())
+    .enabled(!disabled)
+    .simultaneousWithExternalGesture(simultaneousHandlers);
+
   return (
-    <TouchableWithoutFeedback
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled}
-    >
+    <GestureDetector gesture={accelerateGesture}>
       <Animated.View
         style={[
           styles.wrapper,
@@ -88,7 +96,7 @@ export default function AcceleratorButton({
           <Animated.View style={styles.pauseBar} />
         </Animated.View>
       </Animated.View>
-    </TouchableWithoutFeedback>
+    </GestureDetector>
   );
 }
 
