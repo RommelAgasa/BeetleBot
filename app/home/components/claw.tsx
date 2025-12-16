@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -8,14 +8,12 @@ interface ClawButtonProps {
   clawOpen: boolean;
   onToggleClaw: () => void;
   disabled?: boolean;
-  simultaneousHandlers?: any;
 }
 
 export default function ClawButton({
   clawOpen,
   onToggleClaw,
   disabled,
-  simultaneousHandlers,
 }: ClawButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityOpen = useRef(new Animated.Value(clawOpen ? 1 : 0)).current;
@@ -38,19 +36,32 @@ export default function ClawButton({
 
   const handlePress = () => {
     if (disabled) return;
+    console.log("Claw pressed");
 
     Animated.sequence([
-      Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true, speed: 50, bounciness: 5 }),
-      Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 5 }),
+      Animated.spring(scaleAnim, {
+        toValue: 0.9,
+        useNativeDriver: true,
+        speed: 50,
+        bounciness: 5,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 30,
+        bounciness: 5,
+      }),
     ]).start();
 
     onToggleClaw();
   };
 
-  const clawGesture = Gesture.Tap()
-    .onStart(() => runOnJS(handlePress)())
-    .enabled(!disabled)
-    .simultaneousWithExternalGesture(simultaneousHandlers);
+  const clawGesture = Gesture.LongPress()
+    .minDuration(0)
+    .onStart(() => {
+      runOnJS(handlePress)();
+    })
+    .enabled(!disabled);
 
   return (
     <GestureDetector gesture={clawGesture}>

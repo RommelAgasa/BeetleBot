@@ -1,7 +1,7 @@
-import { DriveMode } from "@/hooks/useDrivingControls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IDrivingService } from "../interface/IDrivingService";
 import { DefaultDrivingService } from "../services/DefaultDrivingService";
+import { DriveMode } from "../types/DriveMode";
 import { SteeringDirection } from "../types/SteeringDirection";
 
 interface UseDrivingControlsParams {
