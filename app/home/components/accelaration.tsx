@@ -63,9 +63,9 @@ export default function AcceleratorButton(
     };
   }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
 
-  // Long press gesture that allows other gestures to run simultaneously
   const longPressGesture = Gesture.LongPress()
     .minDuration(0)
+    .shouldCancelWhenOutside(false)
     .onStart(() => {
       runOnJS(handlePressIn)();
     })

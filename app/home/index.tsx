@@ -3,7 +3,7 @@ import { GestureRegistryProvider } from "@/src/context/GestureRegistryContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, useWindowDimensions, View } from "react-native";
+import { Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
 import AcceleratorButton from "./components/accelaration";
@@ -41,9 +41,6 @@ export default function Home() {
     speedStep: 10,
     drivingService,
   });
-
-  const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
 
   useEffect(() => {
     if (device) {

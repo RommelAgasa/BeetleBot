@@ -13,49 +13,41 @@ type SteeringWheelProps = {
   device: any;
   onSteeringChange: (angle: number) => void | Promise<void>;
   maxRotation?: number;
-  /**
-   * Gesture ref of another control (e.g. accelerator / brake)
-   * so steering can work simultaneously
-   */
-  simultaneousGestureRef?: any;
 };
 
-export default function SteeringWheel({
-  device,
-  onSteeringChange,
-  maxRotation = 135,
-  simultaneousGestureRef,
-}: SteeringWheelProps) {
-  // ================================
-  // Reanimated shared values
-  // ================================
+function SteeringWheel(props: SteeringWheelProps) {
+  const {
+    device,
+    onSteeringChange,
+    maxRotation = 135,
+  } = props;
+  
   const steeringAngle = useSharedValue(0);
   const lastSentAngle = useSharedValue(0);
+  const cumulativeAngle = useSharedValue(0);
 
-  // ================================
-  // Tuning constants
-  // ================================
   const PAN_GAIN = 0.8;
   const CENTER_DIRECT_THRESHOLD = 12;
   const INTERP_SMOOTHING = 0.55;
   const SEND_THRESHOLD_DEG = 0.5;
 
-  // ================================
-  // Pan gesture
-  // ================================
   const panGesture = useMemo(() => {
-    let gesture = Gesture.Pan()
+    console.log("Creating pan gesture");
+    return Gesture.Pan()
       .minDistance(0)
-      .maxPointers(1) // ignore extra fingers
+      .shouldCancelWhenOutside(false)
       .onBegin(() => {
-        console.log("⬅️➡️ Steering pan began");
+        console.log("⬅️➡️ Pan began");
       })
       .onUpdate((event) => {
-        if (!device) return;
+        console.log("⬅️➡️ Pan update fired, translation:", event.translationX);
+        if (!device) {
+          console.log("No device in pan update");
+          return;
+        }
 
         const rawDeltaX = event.translationX;
         const baseTargetAngle = rawDeltaX * PAN_GAIN;
-
         const targetAngle = Math.max(
           -maxRotation,
           Math.min(maxRotation, baseTargetAngle)
@@ -71,53 +63,43 @@ export default function SteeringWheel({
         }
 
         steeringAngle.value = newAngle;
+        cumulativeAngle.value = newAngle;
 
         if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
           lastSentAngle.value = newAngle;
+          console.log("⬅️➡️ Pan sending command:", newAngle);
           runOnJS(onSteeringChange)(newAngle);
         }
       })
       .onEnd(() => {
         if (!device) return;
-
+        console.log("⬅️➡️ Pan ended");
         steeringAngle.value = withSpring(0, {
           damping: 15,
           stiffness: 120,
           mass: 1,
         });
-
+        cumulativeAngle.value = 0;
         lastSentAngle.value = 0;
         runOnJS(onSteeringChange)(0);
       })
       .onFinalize(() => {
-        console.log("⬅️➡️ Steering pan finalized");
+        console.log("⬅️➡️ Pan finalized");
       })
       .enabled(!!device);
+  }, [device, onSteeringChange]);
 
-    // Allow steering while another gesture is active
-    if (simultaneousGestureRef) {
-      gesture = gesture.simultaneousWithExternalGesture(
-        simultaneousGestureRef
-      );
-    }
-
-    return gesture;
-  }, [device, onSteeringChange, maxRotation, simultaneousGestureRef]);
-
-  // ================================
-  // Animated rotation
-  // ================================
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${steeringAngle.value}deg` }],
   }));
 
-  // ================================
-  // Render
-  // ================================
   return (
     <View style={styles.wrapper}>
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.wheel, animatedStyle]}>
+        <Animated.View 
+          style={[styles.wheel, animatedStyle]}
+          pointerEvents="box-only" // Allow touches to pass through to buttons beneath
+        >
           <Svg width="162" height="158" viewBox="0 0 162 158" fill="none">
             <Ellipse cx="81" cy="79" rx="81" ry="79" fill="#FF880F" />
             <Ellipse cx="81" cy="79" rx="66" ry="67" fill="#e4e0e0ff" />
@@ -135,8 +117,8 @@ export default function SteeringWheel({
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
   },
   wheel: {
     width: 170,
@@ -147,3 +129,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#e8e8e8",
   },
 });
+
+export default SteeringWheel;
