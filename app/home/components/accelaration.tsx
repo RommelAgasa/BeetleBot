@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -9,18 +9,15 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  simultaneousHandlers?: any[];
 };
 
-function AcceleratorButton(
+export default function AcceleratorButton(
   {
     device,
     handleAccelerate,
     handleDecelerate,
     onPedalRelease,
-    simultaneousHandlers,
-  }: AcceleratorButtonProps,
-  ref: any
+  }: AcceleratorButtonProps
 ) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -28,14 +25,15 @@ function AcceleratorButton(
 
   const disabled = !device;
 
-  //  Memoized press handlers
   const handlePressIn = useCallback(() => {
     if (disabled) return;
+    console.log("Accelerator pressed");
     setAccelerating(true);
   }, [disabled]);
 
   const handlePressOut = useCallback(() => {
     if (disabled) return;
+    console.log("Accelerator released");
     setAccelerating(false);
   }, [disabled]);
 
@@ -65,38 +63,22 @@ function AcceleratorButton(
     };
   }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
 
-  const accelerateGesture = useMemo(() => {
-    let gesture = Gesture.LongPress()
-      .minDuration(0)
-      .onStart(() => runOnJS(handlePressIn)())
-      .onEnd(() => runOnJS(handlePressOut)())
-      .onFinalize(() => runOnJS(handlePressOut)())
-      .enabled(!disabled);
-
-    // Add simultaneous handlers to the gesture BEFORE returning
-    if (simultaneousHandlers && Array.isArray(simultaneousHandlers)) {
-      simultaneousHandlers.forEach((handler: any) => {
-        if (handler?.current) {
-          gesture = gesture.simultaneousWithExternalGesture(handler.current);
-        }
-      });
-    }
-
-    return gesture;
-  }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
-
-  // Bind gesture to ref immediately
-  useEffect(() => {
-    if (!ref) return;
-    if (typeof ref === "function") {
-      ref(accelerateGesture);
-    } else {
-      ref.current = accelerateGesture;
-    }
-  }, [ref, accelerateGesture]);
+  // Long press gesture that allows other gestures to run simultaneously
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(0)
+    .onStart(() => {
+      runOnJS(handlePressIn)();
+    })
+    .onEnd(() => {
+      runOnJS(handlePressOut)();
+    })
+    .onFinalize(() => {
+      runOnJS(handlePressOut)();
+    })
+    .enabled(!disabled);
 
   return (
-    <GestureDetector gesture={accelerateGesture}>
+    <GestureDetector gesture={longPressGesture}>
       <Animated.View
         style={[
           styles.wrapper,
@@ -121,8 +103,6 @@ function AcceleratorButton(
     </GestureDetector>
   );
 }
-
-export default forwardRef(AcceleratorButton);
 
 const styles = StyleSheet.create({
   wrapper: {

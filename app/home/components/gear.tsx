@@ -16,13 +16,11 @@ import Animated, {
 interface GearSelectorProps {
   onGearChange?: (gear: string) => void;
   disabled?: boolean;
-  simultaneousHandlers?: any;
 }
 
 export default function GearSelector({
   onGearChange,
   disabled,
-  simultaneousHandlers,
 }: GearSelectorProps) {
   const positions = ["Gear 2", "Gear 1", "Reverse"];
   const totalHeight = 160;
@@ -48,11 +46,8 @@ export default function GearSelector({
     onGearChange?.(positions[index]);
   };
 
-  const setTranslateYJS = (val: number) => {
-    translateY.value = val;
-  };
-
   const panGesture = Gesture.Pan()
+    .shouldCancelWhenOutside(false)
     .onUpdate((event) => {
       if (disabled) return;
       const newY = event.translationY + selectedIndex * slotHeight;
@@ -83,8 +78,7 @@ export default function GearSelector({
       targetIndex = Math.max(0, Math.min(targetIndex, positions.length - 1));
       runOnJS(changeGear)(targetIndex);
     })
-    .enabled(!disabled)
-    .simultaneousWithExternalGesture(simultaneousHandlers);
+    .enabled(!disabled);
 
   const animatedHandleStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

@@ -2,7 +2,7 @@ import { useBleContext } from "@/src/context/BleContext";
 import { GestureRegistryProvider } from "@/src/context/GestureRegistryContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, useWindowDimensions, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
@@ -20,15 +20,10 @@ const DEFAULT_COMMANDS = {
   R: "R",
   S: "S",
   "+": "+",
-  "-": "-",
-  FL: "FL",
-  FR: "FR",
-  BL: "BL",
-  BR: "BR",
+  "-": "-"
 };
 
 export default function Home() {
-  // BLE Context
   const {
     device,
     stopScan,
@@ -47,8 +42,6 @@ export default function Home() {
     drivingService,
   });
 
-  const steeringRef = useRef<any>(null);
-  const pedalRef = useRef<any>(null);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
@@ -79,19 +72,15 @@ export default function Home() {
 
   return (
     <GestureRegistryProvider>
-      <GestureHandlerRootView>
-        <View style={style.container}>
-          {/* Top Navigation Bar */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={[style.container, { flex: 1 }]}>
           <TopNavBar device={device} />
 
-          {/* MAIN CONTROLS */}
           <View style={style.row}>
             <View style={style.row2_left_container}>
               <SteeringWheel
                 device={device}
-                simultaneousHandlers={[pedalRef]}
                 onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
-                ref={steeringRef}
               />
             </View>
 
@@ -100,7 +89,6 @@ export default function Home() {
                 <GearSelector
                   onGearChange={(gear) => driving.handleGearChange(gear)}
                   disabled={!device}
-                  simultaneousHandlers={[steeringRef]}
                 />
               </View>
 
@@ -110,7 +98,6 @@ export default function Home() {
                     clawOpen={driving.clawOpen}
                     onToggleClaw={driving.handleClawToggle}
                     disabled={!device}
-                    simultaneousHandlers={[steeringRef]}
                   />
                 </View>
 
@@ -119,17 +106,14 @@ export default function Home() {
                     <BreakButton
                       device={device}
                       handleBrake={() => driving.handleBrake()}
-                      simultaneousHandlers={[steeringRef]}
                     />
                   </View>
 
                   <View style={style.acceleration}>
                     <AcceleratorButton
-                      ref={pedalRef}
                       device={device}
                       handleAccelerate={() => driving.handleAccelerate()}
                       handleDecelerate={() => driving.handleMaintainSpeed()}
-                      simultaneousHandlers={[steeringRef]}
                     />
                   </View>
                 </View>
