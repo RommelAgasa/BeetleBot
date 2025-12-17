@@ -1,10 +1,13 @@
 import { useBleContext } from "@/src/context/BleContext";
+import { BleService } from "@/src/services/BleService";
 import CustomText from "@/src/theme/custom-theme";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   View,
@@ -24,11 +27,34 @@ export default function BluetoothSearch() {
 
   const router = useRouter();
 
-
-  // Auto-scan when entering the screen, stop when leaving
+  // Check if Bluetooth and Location are enabled, then start scanning
   useEffect(() => {
-    console.log("Starting BLE scan...");
-    if (!isScanning) scanForDevices();
+    const checkAndStartScan = async () => {
+      const bleService = BleService.getInstance();
+      const bleManager = (bleService as any).manager;
+      
+      if (!bleManager) return;
+
+      const bleState = await bleManager.state();
+      const isBluetoothOn = bleState === "PoweredOn";
+      const isLocationOn = Platform.OS === "android" 
+        ? await Location.hasServicesEnabledAsync() 
+        : true;
+
+      if (!isBluetoothOn || !isLocationOn) {
+        Alert.alert(
+          "Enable Bluetooth & Location",
+          "Please make sure your Bluetooth and Location are turned on for BLE scanning."
+        );
+        return; // Don't start scanning if BT/Location are off
+      }
+
+      // Only start scanning if Bluetooth and Location are enabled
+      console.log("Starting BLE scan...");
+      if (!isScanning) scanForDevices();
+    };
+
+    checkAndStartScan();
 
     return () => {
       console.log("Stopping BLE scan...");

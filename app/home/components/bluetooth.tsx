@@ -1,9 +1,7 @@
-import { BleService } from "@/src/services/BleService";
 import CustomText from "@/src/theme/custom-theme";
-import * as Location from "expo-location";
 import { usePathname, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
-import { Alert, Animated, Platform, Pressable, StyleSheet } from "react-native";
+import { useRef } from "react";
+import { Animated, Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 export default function Bluetooth({device}:any) {
@@ -12,30 +10,6 @@ export default function Bluetooth({device}:any) {
   const pathname = usePathname(); // current route
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const displayText = device?.name ? device.name : "Connect";
-
-  useEffect(() => {
-    const checkBleAndLocation = async () => {
-      const bleService = BleService.getInstance();
-      const bleManager = (bleService as any).manager;
-      
-      if (!bleManager) return;
-
-      const bleState = await bleManager.state();
-      const isBluetoothOn = bleState === "PoweredOn";
-      const isLocationOn = Platform.OS === "android" 
-        ? await Location.hasServicesEnabledAsync() 
-        : true;
-
-      if (!isBluetoothOn || !isLocationOn) {
-        Alert.alert(
-          "Enable Bluetooth & Location",
-          "Please make sure your Bluetooth and Location are turned on for BLE scanning."
-        );
-      }
-    };
-
-    checkBleAndLocation();
-  }, []);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
