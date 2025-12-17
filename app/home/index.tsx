@@ -2,7 +2,7 @@ import { useBleContext } from "@/src/context/BleContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
 import AcceleratorButton from "./components/accelaration";
@@ -59,16 +59,6 @@ export default function Home() {
       driving.resetDrivingState();
     }
   }, [device]);
-
-  useEffect(() => {
-    if (!device) {
-      Alert.alert(
-        "Enable Bluetooth & Location",
-        "Please make sure your Bluetooth and Location are turned on for BLE scanning."
-      );
-      return () => stopScan();
-    }
-  }, [stopScan]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
