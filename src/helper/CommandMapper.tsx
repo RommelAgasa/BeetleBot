@@ -1,4 +1,4 @@
-import { DriveMode } from "@/hooks/useDrivingControls";
+import { DriveMode } from "../types/DriveMode";
 import { SteeringDirection } from "../types/SteeringDirection";
 
 /**
