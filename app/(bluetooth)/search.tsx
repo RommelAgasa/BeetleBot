@@ -3,7 +3,7 @@ import { BleService } from "@/src/services/BleService";
 import CustomText from "@/src/theme/custom-theme";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,7 @@ export default function BluetoothSearch() {
   } = useBleContext();
 
   const router = useRouter();
+  const [isBleLocationDisabled, setIsBleLocationDisabled] = useState(false);
 
   // Check if Bluetooth and Location are enabled, then start scanning
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function BluetoothSearch() {
         : true;
 
       if (!isBluetoothOn || !isLocationOn) {
+        setIsBleLocationDisabled(true);
         Alert.alert(
           "Enable Bluetooth & Location",
           "Please make sure your Bluetooth and Location are turned on for BLE scanning."
@@ -50,6 +52,7 @@ export default function BluetoothSearch() {
       }
 
       // Only start scanning if Bluetooth and Location are enabled
+      setIsBleLocationDisabled(false);
       console.log("Starting BLE scan...");
       if (!isScanning) scanForDevices();
     };
@@ -78,6 +81,29 @@ export default function BluetoothSearch() {
   // Retry Scan (debounced)
   const handleRetryScan = async () => {
     if (isScanning) return; // prevent spam
+    
+    // Check BT/Location before retrying
+    const bleService = BleService.getInstance();
+    const bleManager = (bleService as any).manager;
+    
+    if (!bleManager) return;
+
+    const bleState = await bleManager.state();
+    const isBluetoothOn = bleState === "PoweredOn";
+    const isLocationOn = Platform.OS === "android" 
+      ? await Location.hasServicesEnabledAsync() 
+      : true;
+
+    if (!isBluetoothOn || !isLocationOn) {
+      setIsBleLocationDisabled(true);
+      Alert.alert(
+        "Enable Bluetooth & Location",
+        "Please make sure your Bluetooth and Location are turned on for BLE scanning."
+      );
+      return;
+    }
+
+    setIsBleLocationDisabled(false);
     console.log("Retrying BLE scan...");
     await stopScan();
     scanForDevices();
@@ -122,6 +148,35 @@ export default function BluetoothSearch() {
                 <CustomText style={{ fontSize: 18, marginTop: 8 }}>
                   Scanning...
                 </CustomText>
+              </>
+            ) : isBleLocationDisabled ? (
+              <>
+                <CustomText style={{ fontSize: 18, fontWeight: "bold", color: "#FF6B6B", textAlign: "center" }}>
+                  Bluetooth & Location Disabled
+                </CustomText>
+                <CustomText style={{ fontSize: 14, color: "#888", marginTop: 8, textAlign: "center", paddingHorizontal: 20 }}>
+                  Please turn on Bluetooth and Location services to scan for devices
+                </CustomText>
+                <Pressable
+                  onPress={handleRetryScan}
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: "#FF9E42",
+                    paddingHorizontal: 18,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                  }}
+                >
+                  <CustomText
+                    style={{
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: 16,
+                    }}
+                  >
+                    Check Again
+                  </CustomText>
+                </Pressable>
               </>
             ) : (
               <>
