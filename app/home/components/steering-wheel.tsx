@@ -13,6 +13,8 @@ type SteeringWheelProps = {
   device: any;
   onSteeringChange: (angle: number) => void | Promise<void>;
   maxRotation?: number;
+  gestureRef?: React.RefObject<any>;
+  simultaneousHandlers?: React.RefObject<any>;
 };
 
 function SteeringWheel(props: SteeringWheelProps) {
@@ -20,6 +22,8 @@ function SteeringWheel(props: SteeringWheelProps) {
     device,
     onSteeringChange,
     maxRotation = 135,
+    gestureRef,
+    simultaneousHandlers,
   } = props;
   
   const steeringAngle = useSharedValue(0);
@@ -33,7 +37,7 @@ function SteeringWheel(props: SteeringWheelProps) {
 
   const panGesture = useMemo(() => {
     console.log("Creating pan gesture");
-    return Gesture.Pan()
+    const gesture = Gesture.Pan()
       .minDistance(0)
       .shouldCancelWhenOutside(false)
       .onBegin(() => {
@@ -87,7 +91,14 @@ function SteeringWheel(props: SteeringWheelProps) {
         console.log("⬅️➡️ Pan finalized");
       })
       .enabled(!!device);
-  }, [device, onSteeringChange]);
+    
+    // Configure simultaneous gesture
+    if (simultaneousHandlers) {
+      gesture.simultaneousWithExternalGesture(simultaneousHandlers);
+    }
+    
+    return gesture;
+  }, [device, onSteeringChange, simultaneousHandlers]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${steeringAngle.value}deg` }],

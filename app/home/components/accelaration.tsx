@@ -9,6 +9,8 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
+  gestureRef?: React.RefObject<any>;
+  simultaneousHandlers?: React.RefObject<any>;
 };
 
 export default function AcceleratorButton(
@@ -17,6 +19,8 @@ export default function AcceleratorButton(
     handleAccelerate,
     handleDecelerate,
     onPedalRelease,
+    gestureRef,
+    simultaneousHandlers,
   }: AcceleratorButtonProps
 ) {
   const [accelerating, setAccelerating] = useState(false);
@@ -63,19 +67,29 @@ export default function AcceleratorButton(
     };
   }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
 
-  const longPressGesture = Gesture.LongPress()
-    .minDuration(0)
-    .shouldCancelWhenOutside(false)
-    .onStart(() => {
-      runOnJS(handlePressIn)();
-    })
-    .onEnd(() => {
-      runOnJS(handlePressOut)();
-    })
-    .onFinalize(() => {
-      runOnJS(handlePressOut)();
-    })
-    .enabled(!disabled);
+  const longPressGesture = React.useMemo(() => {
+    const gesture = Gesture.LongPress()
+      .minDuration(0)
+      .maxDistance(999999)
+      .shouldCancelWhenOutside(false)
+      .onStart(() => {
+        runOnJS(handlePressIn)();
+      })
+      .onEnd(() => {
+        runOnJS(handlePressOut)();
+      })
+      .onFinalize(() => {
+        runOnJS(handlePressOut)();
+      })
+      .enabled(!disabled);
+    
+    // Configure simultaneous gesture
+    if (simultaneousHandlers) {
+      gesture.simultaneousWithExternalGesture(simultaneousHandlers);
+    }
+    
+    return gesture;
+  }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
 
   return (
     <GestureDetector gesture={longPressGesture}>
