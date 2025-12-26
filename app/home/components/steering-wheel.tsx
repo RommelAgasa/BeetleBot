@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -13,7 +13,6 @@ type SteeringWheelProps = {
   device: any;
   onSteeringChange: (angle: number) => void | Promise<void>;
   maxRotation?: number;
-  gestureRef?: React.RefObject<any>;
   simultaneousHandlers?: React.RefObject<any>;
 };
 
@@ -22,7 +21,6 @@ function SteeringWheel(props: SteeringWheelProps) {
     device,
     onSteeringChange,
     maxRotation = 135,
-    gestureRef,
     simultaneousHandlers,
   } = props;
   
@@ -35,70 +33,59 @@ function SteeringWheel(props: SteeringWheelProps) {
   const INTERP_SMOOTHING = 0.55;
   const SEND_THRESHOLD_DEG = 0.5;
 
-  const panGesture = useMemo(() => {
-    console.log("Creating pan gesture");
-    const gesture = Gesture.Pan()
-      .minDistance(0)
-      .shouldCancelWhenOutside(false)
-      .onBegin(() => {
-        console.log("⬅️➡️ Pan began");
-      })
-      .onUpdate((event) => {
-        console.log("⬅️➡️ Pan update fired, translation:", event.translationX);
-        if (!device) {
-          console.log("No device in pan update");
-          return;
-        }
+  const panGesture = Gesture.Pan()
+    .minDistance(0)
+    .onBegin(() => {
+      console.log("🎯 Pan gesture STARTED - Steering wheel activated!");
+    })
+    .onUpdate((event) => {
+      if (!device) return;
+      console.log("🎯 Pan gesture ACTIVE - dragging:", event.translationX);
 
-        const rawDeltaX = event.translationX;
-        const baseTargetAngle = rawDeltaX * PAN_GAIN;
-        const targetAngle = Math.max(
-          -maxRotation,
-          Math.min(maxRotation, baseTargetAngle)
-        );
+      const rawDeltaX = event.translationX;
+      const baseTargetAngle = rawDeltaX * PAN_GAIN;
+      const targetAngle = Math.max(
+        -maxRotation,
+        Math.min(maxRotation, baseTargetAngle)
+      );
 
-        const current = steeringAngle.value;
-        let newAngle: number;
+      const current = steeringAngle.value;
+      let newAngle: number;
 
-        if (Math.abs(targetAngle) < CENTER_DIRECT_THRESHOLD) {
-          newAngle = targetAngle;
-        } else {
-          newAngle = current + (targetAngle - current) * INTERP_SMOOTHING;
-        }
+      if (Math.abs(targetAngle) < CENTER_DIRECT_THRESHOLD) {
+        newAngle = targetAngle;
+      } else {
+        newAngle = current + (targetAngle - current) * INTERP_SMOOTHING;
+      }
 
-        steeringAngle.value = newAngle;
-        cumulativeAngle.value = newAngle;
+      steeringAngle.value = newAngle;
+      cumulativeAngle.value = newAngle;
 
-        if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
-          lastSentAngle.value = newAngle;
-          console.log("⬅️➡️ Pan sending command:", newAngle);
-          runOnJS(onSteeringChange)(newAngle);
-        }
-      })
-      .onEnd(() => {
-        if (!device) return;
-        console.log("⬅️➡️ Pan ended");
-        steeringAngle.value = withSpring(0, {
-          damping: 15,
-          stiffness: 120,
-          mass: 1,
-        });
-        cumulativeAngle.value = 0;
-        lastSentAngle.value = 0;
-        runOnJS(onSteeringChange)(0);
-      })
-      .onFinalize(() => {
-        console.log("⬅️➡️ Pan finalized");
-      })
-      .enabled(!!device);
-    
-    // Configure simultaneous gesture
-    if (simultaneousHandlers) {
-      gesture.simultaneousWithExternalGesture(simultaneousHandlers);
-    }
-    
-    return gesture;
-  }, [device, onSteeringChange, simultaneousHandlers]);
+      if (Math.abs(newAngle - lastSentAngle.value) >= SEND_THRESHOLD_DEG) {
+        lastSentAngle.value = newAngle;
+        console.log("🎯 SENDING STEERING COMMAND - angle:", newAngle);
+        runOnJS(onSteeringChange)(newAngle);
+      }
+    })
+    .onEnd(() => {
+      if (!device) return;
+      console.log("🎯 Pan gesture ENDED - Steering wheel released!");
+      console.log("🎯 RESETTING STEERING - sending angle: 0");
+      steeringAngle.value = withSpring(0, {
+        damping: 15,
+        stiffness: 120,
+        mass: 1,
+      });
+      cumulativeAngle.value = 0;
+      lastSentAngle.value = 0;
+      runOnJS(onSteeringChange)(0);
+    })
+    .enabled(!!device);
+
+  // Apply simultaneous gesture with pedals if available
+  const steeringGesture = simultaneousHandlers
+    ? panGesture.simultaneousWithExternalGesture(simultaneousHandlers)
+    : panGesture;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${steeringAngle.value}deg` }],
@@ -106,10 +93,10 @@ function SteeringWheel(props: SteeringWheelProps) {
 
   return (
     <View style={styles.wrapper}>
-      <GestureDetector gesture={panGesture}>
-        <Animated.View 
+      <GestureDetector gesture={steeringGesture}>
+        <Animated.View
           style={[styles.wheel, animatedStyle]}
-          pointerEvents="box-only" // Allow touches to pass through to buttons beneath
+          pointerEvents="box-only"
         >
           <Svg width="162" height="158" viewBox="0 0 162 158" fill="none">
             <Ellipse cx="81" cy="79" rx="81" ry="79" fill="#FF880F" />

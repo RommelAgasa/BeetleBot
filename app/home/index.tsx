@@ -74,7 +74,6 @@ export default function Home() {
             <SteeringWheel
               device={device}
               onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
-              gestureRef={steeringRef}
               simultaneousHandlers={acceleratorRef}
             />
           </View>
@@ -109,7 +108,6 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleMaintainSpeed()}
-                    gestureRef={acceleratorRef}
                     simultaneousHandlers={steeringRef}
                   />
                 </View>

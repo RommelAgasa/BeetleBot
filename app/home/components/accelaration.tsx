@@ -9,20 +9,16 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  gestureRef?: React.RefObject<any>;
   simultaneousHandlers?: React.RefObject<any>;
 };
 
-export default function AcceleratorButton(
-  {
-    device,
-    handleAccelerate,
-    handleDecelerate,
-    onPedalRelease,
-    gestureRef,
-    simultaneousHandlers,
-  }: AcceleratorButtonProps
-) {
+function AcceleratorButton({
+  device,
+  handleAccelerate,
+  handleDecelerate,
+  onPedalRelease,
+  simultaneousHandlers,
+}: AcceleratorButtonProps) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -83,12 +79,9 @@ export default function AcceleratorButton(
       })
       .enabled(!disabled);
     
-    // Configure simultaneous gesture
-    if (simultaneousHandlers) {
-      gesture.simultaneousWithExternalGesture(simultaneousHandlers);
-    }
-    
-    return gesture;
+    return simultaneousHandlers
+      ? gesture.simultaneousWithExternalGesture(simultaneousHandlers)
+      : gesture;
   }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
 
   return (
@@ -139,3 +132,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
 });
+
+export default AcceleratorButton;

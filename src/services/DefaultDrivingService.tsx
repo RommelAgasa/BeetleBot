@@ -90,11 +90,10 @@ export class DefaultDrivingService implements IDrivingService {
 
     await this.sendText(sendCommand, "+");
 
+    // Always send forward commands - Arduino handles gear reversal
     let cmd = "F";
-    if (this.currentGear === "Reverse") cmd = "B";
-
-    if (steeringDirection === "left") cmd = this.currentGear === "Reverse" ? "L" : "L";
-    else if (steeringDirection === "right") cmd = this.currentGear === "Reverse" ? "R" : "R";
+    if (steeringDirection === "left") cmd = "FL";
+    else if (steeringDirection === "right") cmd = "FR";
 
     await this.sendText(sendCommand, cmd);
 
@@ -146,14 +145,10 @@ export class DefaultDrivingService implements IDrivingService {
     // Send + to keep wheels running
     await this.sendText(sendCommand, "+");
 
-    // Also send direction command to keep firmware aware of direction during deceleration
-    let cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
-
-    if (this.lastSteeringDirection === "left") {
-      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "L" : "L";
-    } else if (this.lastSteeringDirection === "right") {
-      cmd = this.lastDriveMode === "reverse" || this.currentGear === "Reverse" ? "R" : "R";
-    }
+    // Always send forward commands - Arduino handles gear reversal
+    let cmd = "F";
+    if (this.lastSteeringDirection === "left") cmd = "FL";
+    else if (this.lastSteeringDirection === "right") cmd = "FR";
 
     await this.sendText(sendCommand, cmd);
 
