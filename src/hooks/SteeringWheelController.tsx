@@ -60,6 +60,7 @@ export const SteeringWheelController = ({
     console.log("Accelerating → newSpeed:", newSpeed); // <-- log here
     setSpeed(newSpeed);
     setDriveMode("forward");
+    driveModeRef.current = "forward";
   }, [maxSpeed, speedStep, drivingService, commandMap, sendCommand]);
 
   // 🕹️ When pedal released → gradually go back to normal speed
@@ -95,6 +96,7 @@ export const SteeringWheelController = ({
       console.log("Returning → currentSpeed:", decelResult.newSpeed); // <-- log here
       setSpeed(decelResult.newSpeed);
       setDriveMode("forward");
+      driveModeRef.current = "forward";
     }, 200);
   }, [drivingService, commandMap, sendCommand]);
 
@@ -110,6 +112,7 @@ export const SteeringWheelController = ({
     await drivingService.sendBrakeCommand(commandMap, sendCommand);
     setDriveMode("stopped");
     setSpeed(0);
+    driveModeRef.current = "stopped";
   }, [drivingService, commandMap, sendCommand]);
 
   const handleGearChange = useCallback(
@@ -117,6 +120,7 @@ export const SteeringWheelController = ({
       setGear(newGear);
       await drivingService.sendGearChangeCommand(newGear, commandMap, sendCommand);
       setDriveMode(newGear === "Reverse" ? "reverse" : "forward");
+      driveModeRef.current = newGear === "Reverse" ? "reverse" : "forward";
     },
     [drivingService, commandMap, sendCommand]
   );
@@ -127,6 +131,7 @@ export const SteeringWheelController = ({
       if (angle < -10) direction = "left";
       else if (angle > 10) direction = "right";
       setSteeringDirection(direction);
+      steeringRef.current = direction;
 
       await drivingService.sendSteeringCommand(
         true,

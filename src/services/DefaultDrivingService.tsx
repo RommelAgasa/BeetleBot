@@ -23,7 +23,10 @@ export class DefaultDrivingService implements IDrivingService {
       case "Gear 2":
         return "2";
       case "Reverse":
-        return "R";
+        // IMPORTANT: Do NOT use "R" here because the firmware also uses "R" as
+        // the steering-right movement command.
+        // The Arduino sketch should treat this as "Reverse gear".
+        return "V";
       default:
         return "1";
     }
@@ -35,7 +38,7 @@ export class DefaultDrivingService implements IDrivingService {
     await sendCommand(cmd);
   }
 
-  /** Gear switching: sends 1, 2, or R */
+  /** Gear switching: sends 1, 2, or V (Reverse gear) */
     async sendGearChangeCommand(
       gear: string,
       _commandMap: Record<string, string>,
@@ -65,11 +68,16 @@ export class DefaultDrivingService implements IDrivingService {
       return;
     }
 
-    // Otherwise, send directional driving command (while moving)
-    let cmd = driveMode === "reverse" || this.currentGear === "Reverse" ? "B" : "F";
+    // While moving: ALWAYS send forward-style commands.
+    // The Arduino firmware swaps F<->B (and diagonals) when gear is Reverse.
+    // If we send B/BL/BR from the app while gear is Reverse, the firmware swaps
+    // them again and the robot drives forward.
+    let cmd = "F";
+    if (direction === "left") cmd = "FL";
+    else if (direction === "right") cmd = "FR";
 
-    if (direction === "left") cmd = driveMode === "reverse" ? "L" : "L";
-    else if (direction === "right") cmd = driveMode === "reverse" ? "R" : "R";
+    this.lastSteeringDirection = direction;
+    this.lastDriveMode = "forward";
 
     await this.sendText(sendCommand, cmd);
   }
@@ -112,13 +120,15 @@ export class DefaultDrivingService implements IDrivingService {
   ): Promise<number> {
     // Track steering direction for use in deceleration
     this.lastSteeringDirection = steeringDirection;
-    this.lastDriveMode = "reverse";
+    this.lastDriveMode = "forward";
 
     await this.sendText(sendCommand, "+");
 
-    let cmd = "B"; // default reverse
-    if (steeringDirection === "left") cmd = "BL";
-    else if (steeringDirection === "right") cmd = "BR";
+    // Same reasoning as sendSteeringCommand(): keep sending forward-style
+    // commands and let the firmware swap direction when reverse gear is active.
+    let cmd = "F";
+    if (steeringDirection === "left") cmd = "FL";
+    else if (steeringDirection === "right") cmd = "FR";
 
     await this.sendText(sendCommand, cmd);
 

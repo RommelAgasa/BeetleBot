@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
 type AcceleratorButtonProps = {
@@ -9,7 +8,8 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  simultaneousHandlers?: React.RefObject<any>;
+  gestureRef?: React.MutableRefObject<any>;
+  simultaneousGestureRef?: React.RefObject<any>;
 };
 
 function AcceleratorButton({
@@ -17,25 +17,43 @@ function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
-  simultaneousHandlers,
+  gestureRef,
+  simultaneousGestureRef,
 }: AcceleratorButtonProps) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pressedRef = useRef(false);
+  const accelerateInFlightRef = useRef(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const disabled = !device;
 
   const handlePressIn = useCallback(() => {
     if (disabled) return;
+    if (pressedRef.current) return;
+    pressedRef.current = true;
     console.log("Accelerator pressed");
     setAccelerating(true);
   }, [disabled]);
 
   const handlePressOut = useCallback(() => {
     if (disabled) return;
+    if (!pressedRef.current) return;
+    pressedRef.current = false;
     console.log("Accelerator released");
     setAccelerating(false);
   }, [disabled]);
+
+  const tickAccelerate = useCallback(async () => {
+    if (disabled) return;
+    if (accelerateInFlightRef.current) return;
+    accelerateInFlightRef.current = true;
+    try {
+      await Promise.resolve(handleAccelerate());
+    } finally {
+      accelerateInFlightRef.current = false;
+    }
+  }, [disabled, handleAccelerate]);
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -44,13 +62,16 @@ function AcceleratorButton({
     }).start();
 
     if (accelerating) {
-      handleAccelerate();
-      intervalRef.current = setInterval(() => handleAccelerate(), 100);
+      void tickAccelerate();
+      intervalRef.current = setInterval(() => {
+        void tickAccelerate();
+      }, 100);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      accelerateInFlightRef.current = false;
       handleDecelerate();
       if (onPedalRelease) onPedalRelease();
     }
@@ -63,29 +84,36 @@ function AcceleratorButton({
     };
   }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
 
-  const longPressGesture = React.useMemo(() => {
-    const gesture = Gesture.LongPress()
+  const pressGesture = React.useMemo(() => {
+    let gesture = Gesture.LongPress()
       .minDuration(0)
       .maxDistance(999999)
       .shouldCancelWhenOutside(false)
+      .runOnJS(true)
       .onStart(() => {
-        runOnJS(handlePressIn)();
+        handlePressIn();
       })
       .onEnd(() => {
-        runOnJS(handlePressOut)();
+        handlePressOut();
       })
       .onFinalize(() => {
-        runOnJS(handlePressOut)();
+        handlePressOut();
       })
       .enabled(!disabled);
-    
-    return simultaneousHandlers
-      ? gesture.simultaneousWithExternalGesture(simultaneousHandlers)
-      : gesture;
-  }, [disabled, handlePressIn, handlePressOut, simultaneousHandlers]);
+
+    if (gestureRef) {
+      gesture = gesture.withRef(gestureRef);
+    }
+
+    if (simultaneousGestureRef) {
+      gesture = gesture.simultaneousWithExternalGesture(simultaneousGestureRef);
+    }
+
+    return gesture;
+  }, [disabled, gestureRef, simultaneousGestureRef, handlePressIn, handlePressOut]);
 
   return (
-    <GestureDetector gesture={longPressGesture}>
+    <GestureDetector gesture={pressGesture}>
       <Animated.View
         style={[
           styles.wrapper,

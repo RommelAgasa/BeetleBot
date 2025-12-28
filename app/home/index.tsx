@@ -36,9 +36,8 @@ export default function Home() {
   const [commandMap, setCommandMap] = useState({ ...DEFAULT_COMMANDS });
   const [maxSpeed, setMaxSpeed] = useState<number>(100);
 
-  // Gesture handler refs for simultaneous interactions
-  const steeringRef = useRef(null);
-  const acceleratorRef = useRef(null);
+  const steeringGestureRef = useRef<any>(undefined);
+  const acceleratorGestureRef = useRef<any>(undefined);
 
   const drivingService = useMemo(() => new DefaultDrivingService(), []);
   const driving = SteeringWheelController({
@@ -74,7 +73,8 @@ export default function Home() {
             <SteeringWheel
               device={device}
               onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
-              simultaneousHandlers={acceleratorRef}
+              gestureRef={steeringGestureRef}
+              simultaneousGestureRef={acceleratorGestureRef}
             />
           </View>
 
@@ -108,7 +108,8 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleMaintainSpeed()}
-                    simultaneousHandlers={steeringRef}
+                    gestureRef={acceleratorGestureRef}
+                    simultaneousGestureRef={steeringGestureRef}
                   />
                 </View>
               </View>
