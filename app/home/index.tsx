@@ -1,7 +1,7 @@
 import { useBleContext } from "@/src/context/BleContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
@@ -35,6 +35,9 @@ export default function Home() {
 
   const [commandMap, setCommandMap] = useState({ ...DEFAULT_COMMANDS });
   const [maxSpeed, setMaxSpeed] = useState<number>(100);
+
+  const steeringGestureRef = useRef<any>(undefined);
+  const acceleratorGestureRef = useRef<any>(undefined);
 
   const drivingService = useMemo(() => new DefaultDrivingService(), []);
   const driving = SteeringWheelController({
@@ -70,6 +73,8 @@ export default function Home() {
             <SteeringWheel
               device={device}
               onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
+              gestureRef={steeringGestureRef}
+              simultaneousGestureRef={acceleratorGestureRef}
             />
           </View>
 
@@ -103,6 +108,8 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleMaintainSpeed()}
+                    gestureRef={acceleratorGestureRef}
+                    simultaneousGestureRef={steeringGestureRef}
                   />
                 </View>
               </View>
