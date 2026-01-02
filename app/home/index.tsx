@@ -31,12 +31,11 @@ const DEFAULT_COMMANDS = {
 export default function Home() {
   const {
     device,
-    stopScan,
     sendCommand,
   } = useBleContext();
 
-  const [commandMap, setCommandMap] = useState({ ...DEFAULT_COMMANDS });
-  const [maxSpeed, setMaxSpeed] = useState<number>(100);
+  const [commandMap] = useState({ ...DEFAULT_COMMANDS });
+  const [maxSpeed] = useState<number>(100);
 
   const steeringGestureRef = useRef<any>(undefined);
   const acceleratorGestureRef = useRef<any>(undefined);
@@ -49,21 +48,22 @@ export default function Home() {
     speedStep: 10,
     drivingService,
   });
+  const resetDrivingState = driving.resetDrivingState;
 
   useEffect(() => {
     if (device) {
       sendCommand("/");
       sendCommand(`MAX:${maxSpeed}`);
-      driving.resetDrivingState();
+      resetDrivingState();
     }
-  }, [device, sendCommand, maxSpeed]);
+  }, [device, sendCommand, maxSpeed, resetDrivingState]);
 
   useEffect(() => {
     if (!device) {
       console.log("Device disconnected — resetting driving state.");
-      driving.resetDrivingState();
+      resetDrivingState();
     }
-  }, [device]);
+  }, [device, resetDrivingState]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -72,13 +72,11 @@ export default function Home() {
 
         <View style={style.row}>
           <View style={style.row2_left_container}>
-            {/* Temporary Slider replacement for SteeringWheel to test multitouch */}
+            {/* Slider controls steering: -100 left, 0 center, 100 right */}
             <SliderReplacement
               device={device}
-              value={maxSpeed}
-              onValueChange={(v: number) => {
-                setMaxSpeed(Math.round(v));
-              }}
+              value={0}
+              onSteeringChange={(angle) => driving.handleSteeringChange(angle)}
               gestureRef={steeringGestureRef}
               simultaneousGestureRef={acceleratorGestureRef}
             />

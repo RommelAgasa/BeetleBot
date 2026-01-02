@@ -7,6 +7,7 @@ type SliderReplacementProps = {
   device: any;
   value: number;
   onValueChange?: (v: number) => void;
+  onSteeringChange?: (angle: number) => void | Promise<void>;
   gestureRef?: React.MutableRefObject<any>;
   simultaneousGestureRef?: React.RefObject<any>;
 };
@@ -15,6 +16,7 @@ export default function SliderReplacement({
   device,
   value,
   onValueChange,
+  onSteeringChange,
   gestureRef,
   simultaneousGestureRef,
 }: SliderReplacementProps) {
@@ -22,6 +24,23 @@ export default function SliderReplacement({
   const trackRef = useRef<any>(null);
   const trackLeft = useRef<number>(0);
   const trackWidth = useRef<number>(200);
+  const lastSentDirectionKey = useRef<number>(0); // -1 left, 0 center, 1 right
+
+  const STEER_THRESHOLD = 10; // ±10 considered neutral
+
+  const maybeSendSteering = React.useCallback((v: number) => {
+    if (!device || !onSteeringChange) return;
+    let directionKey = 0;
+    if (v < -STEER_THRESHOLD) directionKey = -1;
+    else if (v > STEER_THRESHOLD) directionKey = 1;
+
+    if (directionKey !== lastSentDirectionKey.current) {
+      lastSentDirectionKey.current = directionKey;
+      const angleForJs = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
+      console.log("Slider → steering angle:", angleForJs);
+      onSteeringChange(angleForJs);
+    }
+  }, [device, onSteeringChange]);
 
   useEffect(() => {
     setInternalValue(value ?? 0);
@@ -35,12 +54,12 @@ export default function SliderReplacement({
           trackWidth.current = w || 200;
         });
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
 
-  const handlePointerToValue = (absoluteX: number) => {
+  const handlePointerToValue = React.useCallback((absoluteX: number) => {
     const x = absoluteX - trackLeft.current;
     let pct = 0;
     if (trackWidth.current > 0) pct = x / trackWidth.current;
@@ -50,7 +69,8 @@ export default function SliderReplacement({
     console.log("Slider (pointer) value:", v);
     setInternalValue(v);
     if (onValueChange) onValueChange(v);
-  };
+    maybeSendSteering(v);
+  }, [onValueChange, maybeSendSteering]);
 
   const pan = useMemo(() => {
     let g = Gesture.Pan()
@@ -63,7 +83,7 @@ export default function SliderReplacement({
         handlePointerToValue((e as any).absoluteX ?? 0);
       })
       .onEnd(() => {
-        // nothing
+        // keep value; slider does not auto-center.
       })
       .enabled(!!device);
 
@@ -71,7 +91,7 @@ export default function SliderReplacement({
     if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
 
     return g;
-  }, [device, gestureRef, simultaneousGestureRef]);
+  }, [device, gestureRef, simultaneousGestureRef, handlePointerToValue]);
 
   return (
     <GestureDetector gesture={pan}>
@@ -90,6 +110,7 @@ export default function SliderReplacement({
             console.log("Slider (drag) value:", nv);
             setInternalValue(nv);
             if (onValueChange) onValueChange(nv);
+            maybeSendSteering(nv);
           }}
           disabled={!device}
         />
