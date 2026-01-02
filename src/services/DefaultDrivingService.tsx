@@ -104,8 +104,10 @@ export class DefaultDrivingService implements IDrivingService {
     else if (steeringDirection === "right") cmd = "FR";
 
     await this.sendText(sendCommand, cmd);
-
+    
     const newSpeed = Math.min(currentSpeed + speedStep, maxSpeed);
+    console.log("sendAccelerateCommand inputs:", { currentSpeed, maxSpeed, speedStep, steeringDirection });
+    console.log("sendAccelerateCommand computed newSpeed:", newSpeed);
     return newSpeed;
   }
 
