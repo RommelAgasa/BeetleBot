@@ -9,8 +9,10 @@ import AcceleratorButton from "./components/accelaration";
 import BreakButton from "./components/break";
 import ClawButton from "./components/claw";
 import GearSelector from "./components/gear";
-import SteeringWheel from "./components/steering-wheel";
+import SliderReplacement from "./components/SliderReplacement";
 import style from "./screen-style";
+
+
 
 const DEFAULT_COMMANDS = {
   F: "F",
@@ -70,9 +72,13 @@ export default function Home() {
 
         <View style={style.row}>
           <View style={style.row2_left_container}>
-            <SteeringWheel
+            {/* Temporary Slider replacement for SteeringWheel to test multitouch */}
+            <SliderReplacement
               device={device}
-              onSteeringChange={(dir) => driving.handleSteeringChange(dir)}
+              value={maxSpeed}
+              onValueChange={(v: number) => {
+                setMaxSpeed(Math.round(v));
+              }}
               gestureRef={steeringGestureRef}
               simultaneousGestureRef={acceleratorGestureRef}
             />
