@@ -30,6 +30,13 @@ export default function SliderReplacement({
     setInternalValue(value ?? 0);
   }, [value]);
 
+  const resetToZero = useCallback(() => {
+    // Always return to neutral when the user releases/cancels the gesture.
+    lastSentDirection.current = 0;
+    setInternalValue(0);
+    if (onValueChange) onValueChange(0);
+  }, [onValueChange]);
+
   const measureTrack = () => {
     try {
       if (trackRef.current && trackRef.current.measureInWindow) {
@@ -50,7 +57,6 @@ export default function SliderReplacement({
     if (pct < 0) pct = 0;
     if (pct > 1) pct = 1;
     const v = Math.round(pct * 200 - 100);
-    console.log("Slider (pointer) value:", v);
     setInternalValue(v);
     // Map to discrete direction commands similar to steering-wheel
     let directionKey = 0;
@@ -76,10 +82,11 @@ export default function SliderReplacement({
         handlePointerToValue((e as any).absoluteX ?? 0);
       })
       .onEnd(() => {
-        // Reset to neutral on end of slide
-        lastSentDirection.current = 0;
-        setInternalValue(0);
-        if (onValueChange) onValueChange(0);
+        resetToZero();
+      })
+      .onFinalize(() => {
+        // Also fires when the gesture is cancelled/interrupted.
+        resetToZero();
       })
       .enabled(!!device);
 
@@ -87,7 +94,7 @@ export default function SliderReplacement({
     if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
 
     return g;
-  }, [device, gestureRef, simultaneousGestureRef, handlePointerToValue, onValueChange]);
+  }, [device, gestureRef, simultaneousGestureRef, handlePointerToValue, resetToZero]);
 
   return (
     <GestureDetector gesture={pan}>
