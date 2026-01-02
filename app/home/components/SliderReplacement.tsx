@@ -1,5 +1,5 @@
 import Slider from "@react-native-community/slider";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
@@ -38,12 +38,12 @@ export default function SliderReplacement({
           trackWidth.current = w || 200;
         });
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
 
-  const handlePointerToValue = (absoluteX: number) => {
+  const handlePointerToValue = useCallback((absoluteX: number) => {
     const x = absoluteX - trackLeft.current;
     let pct = 0;
     if (trackWidth.current > 0) pct = x / trackWidth.current;
@@ -62,11 +62,12 @@ export default function SliderReplacement({
       const outValue = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
       if (onValueChange) onValueChange(outValue);
     }
-  };
+  }, [onValueChange]);
 
   const pan = useMemo(() => {
     let g = Gesture.Pan()
       .minDistance(0)
+      .maxPointers(1)
       .runOnJS(true)
       .onStart((e) => {
         handlePointerToValue((e as any).absoluteX ?? 0);
@@ -75,7 +76,10 @@ export default function SliderReplacement({
         handlePointerToValue((e as any).absoluteX ?? 0);
       })
       .onEnd(() => {
-        // nothing
+        // Reset to neutral on end of slide
+        lastSentDirection.current = 0;
+        setInternalValue(0);
+        if (onValueChange) onValueChange(0);
       })
       .enabled(!!device);
 
@@ -83,7 +87,7 @@ export default function SliderReplacement({
     if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
 
     return g;
-  }, [device, gestureRef, simultaneousGestureRef]);
+  }, [device, gestureRef, simultaneousGestureRef, handlePointerToValue, onValueChange]);
 
   return (
     <GestureDetector gesture={pan}>
@@ -92,35 +96,15 @@ export default function SliderReplacement({
         onLayout={measureTrack}
         style={{ width: "100%", paddingHorizontal: 12 }}
       >
-        <Slider
-          style={{ width: "100%", height: 40 }}
-          minimumValue={-100}
-          maximumValue={100}
-          value={internalValue}
-          onValueChange={(v) => {
-            const nv = Math.round(v);
-            console.log("Slider (drag) value:", nv);
-            setInternalValue(nv);
-            // Map continuous slider to discrete left/center/right like steering-wheel
-            let directionKey = 0;
-            if (nv < -STEER_THRESHOLD) directionKey = -1;
-            else if (nv > STEER_THRESHOLD) directionKey = 1;
-
-            if (directionKey !== lastSentDirection.current) {
-              lastSentDirection.current = directionKey;
-              const outValue = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
-              if (onValueChange) onValueChange(outValue);
-            }
-          }}
-          onSlidingComplete={() => {
-            // Reset to neutral on end of slide
-            if (lastSentDirection.current !== 0) {
-              lastSentDirection.current = 0;
-              if (onValueChange) onValueChange(0);
-            }
-          }}
-          disabled={!device}
-        />
+        <View pointerEvents="none">
+          <Slider
+            style={{ width: "100%", height: 40 }}
+            minimumValue={-100}
+            maximumValue={100}
+            value={internalValue}
+            disabled={!device}
+          />
+        </View>
       </View>
     </GestureDetector>
   );
