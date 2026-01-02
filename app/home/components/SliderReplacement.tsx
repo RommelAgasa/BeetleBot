@@ -1,5 +1,5 @@
 import Slider from "@react-native-community/slider";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
@@ -75,6 +75,7 @@ export default function SliderReplacement({
   const pan = useMemo(() => {
     let g = Gesture.Pan()
       .minDistance(0)
+      .maxPointers(1)
       .runOnJS(true)
       .onStart((e) => {
         handlePointerToValue((e as any).absoluteX ?? 0);

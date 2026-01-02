@@ -50,6 +50,8 @@ export default function Home() {
   });
   const resetDrivingState = driving.resetDrivingState;
 
+  const resetDrivingState = driving.resetDrivingState;
+
   useEffect(() => {
     if (device) {
       sendCommand("/");
