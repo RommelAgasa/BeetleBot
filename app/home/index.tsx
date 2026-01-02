@@ -75,9 +75,9 @@ export default function Home() {
             {/* Temporary Slider replacement for SteeringWheel to test multitouch */}
             <SliderReplacement
               device={device}
-              value={maxSpeed}
+              value={0}
               onValueChange={(v: number) => {
-                setMaxSpeed(Math.round(v));
+                driving.handleSteeringChange(v);
               }}
               gestureRef={steeringGestureRef}
               simultaneousGestureRef={acceleratorGestureRef}

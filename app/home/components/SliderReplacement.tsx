@@ -22,6 +22,9 @@ export default function SliderReplacement({
   const trackRef = useRef<any>(null);
   const trackLeft = useRef<number>(0);
   const trackWidth = useRef<number>(200);
+  const lastSentDirection = useRef<number>(0); // -1 left, 0 center, 1 right
+
+  const STEER_THRESHOLD = 10;
 
   useEffect(() => {
     setInternalValue(value ?? 0);
@@ -49,7 +52,16 @@ export default function SliderReplacement({
     const v = Math.round(pct * 200 - 100);
     console.log("Slider (pointer) value:", v);
     setInternalValue(v);
-    if (onValueChange) onValueChange(v);
+    // Map to discrete direction commands similar to steering-wheel
+    let directionKey = 0;
+    if (v < -STEER_THRESHOLD) directionKey = -1;
+    else if (v > STEER_THRESHOLD) directionKey = 1;
+
+    if (directionKey !== lastSentDirection.current) {
+      lastSentDirection.current = directionKey;
+      const outValue = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
+      if (onValueChange) onValueChange(outValue);
+    }
   };
 
   const pan = useMemo(() => {
@@ -89,7 +101,23 @@ export default function SliderReplacement({
             const nv = Math.round(v);
             console.log("Slider (drag) value:", nv);
             setInternalValue(nv);
-            if (onValueChange) onValueChange(nv);
+            // Map continuous slider to discrete left/center/right like steering-wheel
+            let directionKey = 0;
+            if (nv < -STEER_THRESHOLD) directionKey = -1;
+            else if (nv > STEER_THRESHOLD) directionKey = 1;
+
+            if (directionKey !== lastSentDirection.current) {
+              lastSentDirection.current = directionKey;
+              const outValue = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
+              if (onValueChange) onValueChange(outValue);
+            }
+          }}
+          onSlidingComplete={() => {
+            // Reset to neutral on end of slide
+            if (lastSentDirection.current !== 0) {
+              lastSentDirection.current = 0;
+              if (onValueChange) onValueChange(0);
+            }
           }}
           disabled={!device}
         />
