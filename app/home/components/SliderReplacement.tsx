@@ -84,7 +84,10 @@ export default function SliderReplacement({
         handlePointerToValue((e as any).absoluteX ?? 0);
       })
       .onEnd(() => {
-        // keep value; slider does not auto-center.
+        // Auto-center to neutral on release
+        setInternalValue(0);
+        if (onValueChange) onValueChange(0);
+        maybeSendSteering(0);
       })
       .enabled(!!device);
 
@@ -92,7 +95,14 @@ export default function SliderReplacement({
     if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
 
     return g;
-  }, [device, gestureRef, simultaneousGestureRef, handlePointerToValue]);
+  }, [
+    device,
+    gestureRef,
+    simultaneousGestureRef,
+    handlePointerToValue,
+    onValueChange,
+    maybeSendSteering,
+  ]);
 
   return (
     <GestureDetector gesture={pan}>
@@ -137,6 +147,12 @@ export default function SliderReplacement({
               setInternalValue(nv);
               if (onValueChange) onValueChange(nv);
               maybeSendSteering(nv);
+            }}
+            onSlidingComplete={() => {
+              // Ensure neutral when user releases the slider
+              setInternalValue(0);
+              if (onValueChange) onValueChange(0);
+              maybeSendSteering(0);
             }}
             minimumTrackTintColor="transparent"
             maximumTrackTintColor="transparent"
