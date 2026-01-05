@@ -66,6 +66,16 @@ export const useBle = () => {
     [bleService]
   );
 
+  // Non-throwing connect variant that returns a boolean
+  const tryConnectToDevice = useCallback(
+    async (d: Device): Promise<boolean> => {
+      const ok = await bleService.tryConnectToDevice(d);
+      setDevice(ok ? bleService.device : null);
+      return ok;
+    },
+    [bleService]
+  );
+
   const disconnectDevice = useCallback(async () => {
     // Disconnect from device and clear state
     await bleService.disconnectDevice();
@@ -116,6 +126,7 @@ export const useBle = () => {
     scanForDevices,
     stopScan,
     connectToDevice,
+    tryConnectToDevice,
     disconnectDevice,
     sendCommand,
   };
