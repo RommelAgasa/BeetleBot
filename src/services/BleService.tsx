@@ -220,18 +220,34 @@ export class BleService implements IBleService {
    * Then identifies a writable characteristic for sending commands.
    */
   async connectToDevice(d: Device) {
-  try {
-    await this.connectAndDiscover(d);
-    await this.findWritableCharacteristic();
-    
-    if (!this.characteristicUUID) {
-      throw new Error("No writable characteristic found");
+    try {
+      await this.connectAndDiscover(d);
+      await this.findWritableCharacteristic();
+      
+      if (!this.characteristicUUID) {
+        throw new Error("No writable characteristic found");
+      }
+    } catch (error) {
+      this.resetConnection();
+      throw error; // Let caller handle it
     }
-  } catch (error) {
-    this.resetConnection();
-    throw error; // Let caller handle it
   }
-}
+
+  /**
+   * Safe wrapper around connectToDevice that never throws.
+   * Returns true on success, false on any failure.
+   * Useful for UI flows that prefer boolean results over exceptions.
+   */
+  async tryConnectToDevice(d: Device): Promise<boolean> {
+    try {
+      await this.connectToDevice(d);
+      return true;
+    } catch (error: any) {
+      // connectToDevice already resets connection; just log and return false
+      console.error("Connection error:", error?.message || error);
+      return false;
+    }
+  }
 
   /** Connects and discovers all services/characteristics */
   private async connectAndDiscover(d: Device) {

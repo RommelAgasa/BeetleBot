@@ -57,6 +57,11 @@ export interface IBleService {
   connectToDevice(device: Device): Promise<void>;
 
   /**
+   * Non-throwing connect helper. Returns true on success, false otherwise.
+   */
+  tryConnectToDevice(device: Device): Promise<boolean>;
+
+  /**
    * Connects to device with automatic retry on failure
    * Uses exponential backoff: 1s, 2s, 3s between retries
    * @param device - Device to connect to

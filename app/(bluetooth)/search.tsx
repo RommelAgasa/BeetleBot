@@ -22,7 +22,7 @@ export default function BluetoothSearch() {
     isScanning,
     scanForDevices,
     stopScan,
-    connectToDevice,
+    tryConnectToDevice,
   } = useBleContext();
 
   const router = useRouter();
@@ -67,13 +67,12 @@ export default function BluetoothSearch() {
 
   // Handle connect
   const handleConnect = async (d: any) => {
-    try {
-      await stopScan(); // stop scanning before connecting
-      await connectToDevice(d);
+    await stopScan(); // stop scanning before connecting
+    const ok = await tryConnectToDevice(d);
+    if (ok) {
       console.log("Connected to:", d.name || "Unnamed");
       router.push("/home");
-    } catch (err) {
-      console.error("Failed to connect:", err);
+    } else {
       Alert.alert("Connection failed", "Unable to connect to this device.");
     }
   };
