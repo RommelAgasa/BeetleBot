@@ -8,8 +8,6 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  gestureRef?: React.MutableRefObject<any>;
-  simultaneousGestureRef?: React.RefObject<any>;
 };
 
 function AcceleratorButton({
@@ -17,8 +15,6 @@ function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
-  gestureRef,
-  simultaneousGestureRef,
 }: AcceleratorButtonProps) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -82,9 +78,7 @@ function AcceleratorButton({
         intervalRef.current = null;
       }
     };
-  }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
-
-  const touchIds = useRef<Set<number>>(new Set());
+  }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease, scaleAnim, tickAccelerate]);
   const pan = useMemo(() => {
     let g = Gesture.Pan()
       .minDistance(0)
@@ -94,16 +88,11 @@ function AcceleratorButton({
       })
       .onFinalize(() => {
         handlePressOut();
-        // Ensure internal tracking is reset if gesture is cancelled
-        touchIds.current.clear();
       })
       .enabled(!disabled);
 
-    if (gestureRef) g = g.withRef(gestureRef);
-    if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
-
     return g;
-  }, [disabled, handlePressIn, handlePressOut, gestureRef, simultaneousGestureRef]);
+  }, [disabled, handlePressIn, handlePressOut]);
 
   return (
     <GestureDetector gesture={pan}>
