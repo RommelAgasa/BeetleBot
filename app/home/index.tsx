@@ -72,7 +72,6 @@ export default function Home() {
             {/* Slider controls steering: -100 left, 0 center, 100 right */}
             <SteeringWheelSlider
               device={device}
-              value={0}
               onSteeringChange={(angle) => driving.handleSteeringChange(angle)}
             />
           </View>

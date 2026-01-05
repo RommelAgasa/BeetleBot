@@ -1,87 +1,85 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import Slider from "@react-native-community/slider";
+import React, { useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
 type SteeringWheelSliderProps = {
   device: any;
-  value: number;
   onValueChange?: (v: number) => void;
   onSteeringChange?: (angle: number) => void | Promise<void>;
 };
 
 export default function SteeringWheelSlider({
   device,
-  value,
   onValueChange,
   onSteeringChange,
 }: SteeringWheelSliderProps) {
-  const [internalValue, setInternalValue] = useState<number>(value ?? 0);
-  const halfWidthRef = useRef<number>(85);
+  // Local slider value in range -100 (full left) .. 0 (center) .. 100 (full right)
+  const [internalValue, setInternalValue] = useState<number>(0);
   const lastSentDirectionKey = useRef<number>(0); // -1 left, 0 center, 1 right
 
   const STEER_THRESHOLD = 10; // ±10 considered neutral
+  const PAN_GAIN = 0.8; // how sensitive the wheel is to horizontal drag
+  const MAX_SLIDER_VALUE = 100;
 
-  const maybeSendSteering = React.useCallback((v: number) => {
-    if (!device || !onSteeringChange) return;
-    let directionKey = 0;
-    if (v < -STEER_THRESHOLD) directionKey = -1;
-    else if (v > STEER_THRESHOLD) directionKey = 1;
+  const maybeSendSteering = React.useCallback(
+    (v: number) => {
+      if (!device || !onSteeringChange) return;
+      let directionKey = 0;
+      if (v < -STEER_THRESHOLD) directionKey = -1;
+      else if (v > STEER_THRESHOLD) directionKey = 1;
 
-    if (directionKey !== lastSentDirectionKey.current) {
-      lastSentDirectionKey.current = directionKey;
-      const angleForJs = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
-      console.log("Slider → steering angle:", angleForJs);
-      onSteeringChange(angleForJs);
-    }
-  }, [device, onSteeringChange]);
+      if (directionKey !== lastSentDirectionKey.current) {
+        lastSentDirectionKey.current = directionKey;
+        const angleForJs = directionKey === 0 ? 0 : directionKey * (STEER_THRESHOLD + 1);
+        console.log("Slider → steering angle:", angleForJs);
+        onSteeringChange(angleForJs);
+      }
+    },
+    [device, onSteeringChange]
+  );
 
-  useEffect(() => {
-    setInternalValue(value ?? 0);
-  }, [value]);
+  // Pan gesture over the entire wheel; updates internalValue like a virtual slider
+  const panGesture = Gesture.Pan()
+    .minDistance(0)
+    .hitSlop({ left: 40, right: 40, top: 40, bottom: 40 })
+    .onUpdate((event) => {
+      const raw = event.translationX * PAN_GAIN;
+      const clamped = Math.max(-MAX_SLIDER_VALUE, Math.min(MAX_SLIDER_VALUE, raw));
+      const rounded = Math.round(clamped);
 
-  const pan = useMemo(() => {
-    return Gesture.Pan()
-      .minDistance(0)
-      .runOnJS(true)
-      .onUpdate((e) => {
-        if (!device) return;
-        const half = halfWidthRef.current || 1;
-        let ratio = e.translationX / half;
-        if (ratio < -1) ratio = -1;
-        if (ratio > 1) ratio = 1;
-        const v = Math.round(ratio * 100);
-        setInternalValue(v);
-        if (onValueChange) onValueChange(v);
-        maybeSendSteering(v);
-      })
-      .onEnd(() => {
-        // Auto-center to neutral on release
-        setInternalValue(0);
-        if (onValueChange) onValueChange(0);
-        maybeSendSteering(0);
-      })
-      .enabled(!!device);
-  }, [device, onValueChange, maybeSendSteering]);
+      // Run JS-state updates and BLE commands on the JS thread
+      runOnJS(setInternalValue)(rounded);
+      if (onValueChange) {
+        runOnJS(onValueChange)(rounded);
+      }
+      runOnJS(maybeSendSteering)(rounded);
+    })
+    .onEnd(() => {
+      // Snap back to center and send neutral steering when finger lifts
+      runOnJS(setInternalValue)(0);
+      if (onValueChange) {
+        runOnJS(onValueChange)(0);
+      }
+      runOnJS(maybeSendSteering)(0);
+    });
+
+  const clampedAngle = Math.max(-135, Math.min(135, (internalValue / 100) * 135));
 
   return (
-    <GestureDetector gesture={pan}>
-      <View
-        style={styles.container}
-        onLayout={(e) => {
-          const w = e.nativeEvent.layout.width;
-          if (w) halfWidthRef.current = w / 2;
-        }}
-      >
-        {/* Steering wheel visual overlay (no touch interception) */}
-        <View style={styles.overlay} pointerEvents="none">
+    <View style={styles.container}>
+      {/* Steering wheel visual + gesture area */}
+      <GestureDetector gesture={device ? panGesture : Gesture.Pan().enabled(false)}>
+        <View style={styles.overlay}>
           <View
             style={[
               styles.wheel,
               {
                 transform: [
                   {
-                    rotate: `${Math.max(-135, Math.min(135, (internalValue / 100) * 135))}deg`,
+                    rotate: `${clampedAngle}deg`,
                   },
                 ],
               },
@@ -98,18 +96,44 @@ export default function SteeringWheelSlider({
             </Svg>
           </View>
         </View>
+      </GestureDetector>
+
+      {/* Slider underneath, still visible and tied to the same value */}
+      <View style={styles.sliderBox}>
+        <Slider
+          style={styles.slider}
+          minimumValue={-MAX_SLIDER_VALUE}
+          maximumValue={MAX_SLIDER_VALUE}
+          step={1}
+          value={internalValue}
+          onValueChange={(v) => {
+            const numericValue = typeof v === "number" ? v : Number(v);
+            setInternalValue(numericValue);
+            if (onValueChange) onValueChange(numericValue);
+            maybeSendSteering(numericValue);
+          }}
+          onSlidingComplete={() => {
+            // When the user releases the slider, snap back to center and send neutral steering
+            setInternalValue(0);
+            if (onValueChange) onValueChange(0);
+            maybeSendSteering(0);
+          }}
+          disabled={!device}
+          minimumTrackTintColor="#1fb28a"
+          maximumTrackTintColor="#d3d3d3"
+          thumbTintColor="#1fb28a"
+        />
       </View>
-    </GestureDetector>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    // Fixed-size box so parent can position bottom-left cleanly
     width: 170,
     height: 170,
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
+    alignItems: "center",
+    justifyContent: "center",
   },
   overlay: {
     position: "absolute",
@@ -129,18 +153,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#e8e8e8",
   },
   sliderBox: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: 170,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
   slider: {
     width: 170,
     height: 40,
-    // Keep the slider interactive but invisible
-    opacity: 0.001, // avoid 0 opacity which may disable hit testing on some platforms
+    opacity: 0.001, // keep slider interactive but visually hidden
   },
 });
