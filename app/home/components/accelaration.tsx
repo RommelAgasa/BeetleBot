@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, StyleSheet } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Path } from "react-native-svg";
 
 type AcceleratorButtonProps = {
@@ -7,8 +8,6 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
-  gestureRef?: React.MutableRefObject<any>;
-  simultaneousGestureRef?: React.RefObject<any>;
 };
 
 function AcceleratorButton({
@@ -16,8 +15,6 @@ function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
-  gestureRef,
-  simultaneousGestureRef,
 }: AcceleratorButtonProps) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -81,43 +78,33 @@ function AcceleratorButton({
         intervalRef.current = null;
       }
     };
-  }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease]);
+  }, [accelerating, handleAccelerate, handleDecelerate, onPedalRelease, scaleAnim, tickAccelerate]);
+  const pan = useMemo(() => {
+    let g = Gesture.Pan()
+      .minDistance(0)
+      .runOnJS(true)
+      .onBegin(() => {
+        handlePressIn();
+      })
+      .onFinalize(() => {
+        handlePressOut();
+      })
+      .enabled(!disabled);
 
-  const touchIds = useRef<Set<number>>(new Set());
-
-  function handleTouchStart(e: any) {
-    const changed: any[] = e.nativeEvent.changedTouches || e.nativeEvent.touches || [];
-    changed.forEach((t) => {
-      if (typeof t.identifier === "number") touchIds.current.add(t.identifier);
-    });
-    if (touchIds.current.size > 0 && !accelerating) {
-      handlePressIn();
-    }
-  }
-
-  function handleTouchEnd(e: any) {
-    const changed: any[] = e.nativeEvent.changedTouches || [];
-    changed.forEach((t) => {
-      if (typeof t.identifier === "number") touchIds.current.delete(t.identifier);
-    });
-    if (touchIds.current.size === 0 && accelerating) {
-      handlePressOut();
-    }
-  }
+    return g;
+  }, [disabled, handlePressIn, handlePressOut]);
 
   return (
-    <Animated.View
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
-      style={[
-        styles.wrapper,
-        {
-          transform: [{ scale: scaleAnim }],
-          opacity: disabled ? 0.5 : 1,
-        },
-      ]}
-    >
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={[
+          styles.wrapper,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: disabled ? 0.5 : 1,
+          },
+        ]}
+      >
         <Svg width={54} height={108} viewBox="0 0 54 108" fill="none">
           <Path
             d="M3.23658 6.21415C3.11531 2.81865 5.83509 3.63698e-07 9.23276 5.12215e-07L44.3334 2.04651e-06C47.7171 2.19442e-06 50.4314 2.79635 50.3308 6.17849L48.0446 82.9932C48.0248 83.6598 48.1162 84.3249 48.3151 84.9614L53.0804 100.21C54.2877 104.074 51.4013 108 47.3535 108L6.00483 108C1.86235 108 -1.03389 103.902 0.349069 99.9969L5.63348 85.0762C5.88533 84.3651 6.00082 83.6129 5.97389 82.859L3.23658 6.21415Z"
@@ -129,7 +116,8 @@ function AcceleratorButton({
           <Animated.View style={styles.pauseBar} />
           <Animated.View style={styles.pauseBar} />
         </Animated.View>
-    </Animated.View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

@@ -1,30 +1,23 @@
-import Slider from "@react-native-community/slider";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
-type SliderReplacementProps = {
+type SteeringWheelSliderProps = {
   device: any;
   value: number;
   onValueChange?: (v: number) => void;
   onSteeringChange?: (angle: number) => void | Promise<void>;
-  gestureRef?: React.MutableRefObject<any>;
-  simultaneousGestureRef?: React.RefObject<any>;
 };
 
-export default function SliderReplacement({
+export default function SteeringWheelSlider({
   device,
   value,
   onValueChange,
   onSteeringChange,
-  gestureRef,
-  simultaneousGestureRef,
-}: SliderReplacementProps) {
+}: SteeringWheelSliderProps) {
   const [internalValue, setInternalValue] = useState<number>(value ?? 0);
-  const trackRef = useRef<any>(null);
-  const trackLeft = useRef<number>(0);
-  const trackWidth = useRef<number>(200);
+  const halfWidthRef = useRef<number>(85);
   const lastSentDirectionKey = useRef<number>(0); // -1 left, 0 center, 1 right
 
   const STEER_THRESHOLD = 10; // ±10 considered neutral
@@ -47,41 +40,20 @@ export default function SliderReplacement({
     setInternalValue(value ?? 0);
   }, [value]);
 
-  const measureTrack = () => {
-    try {
-      if (trackRef.current && trackRef.current.measureInWindow) {
-        trackRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
-          trackLeft.current = x;
-          trackWidth.current = w || 200;
-        });
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const handlePointerToValue = React.useCallback((absoluteX: number) => {
-    const x = absoluteX - trackLeft.current;
-    let pct = 0;
-    if (trackWidth.current > 0) pct = x / trackWidth.current;
-    if (pct < 0) pct = 0;
-    if (pct > 1) pct = 1;
-    const v = Math.round(pct * 200 - 100);
-    console.log("Slider (pointer) value:", v);
-    setInternalValue(v);
-    if (onValueChange) onValueChange(v);
-    maybeSendSteering(v);
-  }, [onValueChange, maybeSendSteering]);
-
   const pan = useMemo(() => {
-    let g = Gesture.Pan()
+    return Gesture.Pan()
       .minDistance(0)
       .runOnJS(true)
-      .onStart((e) => {
-        handlePointerToValue((e as any).absoluteX ?? 0);
-      })
       .onUpdate((e) => {
-        handlePointerToValue((e as any).absoluteX ?? 0);
+        if (!device) return;
+        const half = halfWidthRef.current || 1;
+        let ratio = e.translationX / half;
+        if (ratio < -1) ratio = -1;
+        if (ratio > 1) ratio = 1;
+        const v = Math.round(ratio * 100);
+        setInternalValue(v);
+        if (onValueChange) onValueChange(v);
+        maybeSendSteering(v);
       })
       .onEnd(() => {
         // Auto-center to neutral on release
@@ -90,23 +62,17 @@ export default function SliderReplacement({
         maybeSendSteering(0);
       })
       .enabled(!!device);
-
-    if (gestureRef) g = g.withRef(gestureRef);
-    if (simultaneousGestureRef) g = g.simultaneousWithExternalGesture(simultaneousGestureRef);
-
-    return g;
-  }, [
-    device,
-    gestureRef,
-    simultaneousGestureRef,
-    handlePointerToValue,
-    onValueChange,
-    maybeSendSteering,
-  ]);
+  }, [device, onValueChange, maybeSendSteering]);
 
   return (
     <GestureDetector gesture={pan}>
-      <View style={styles.container}>
+      <View
+        style={styles.container}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w) halfWidthRef.current = w / 2;
+        }}
+      >
         {/* Steering wheel visual overlay (no touch interception) */}
         <View style={styles.overlay} pointerEvents="none">
           <View
@@ -131,34 +97,6 @@ export default function SliderReplacement({
               <Ellipse cx="80" cy="88.5" rx="13" ry="11.5" fill="#e4e0e0ff" />
             </Svg>
           </View>
-        </View>
-
-        {/* Centered absolute box: positions and measures the slider area */}
-        <View ref={trackRef} onLayout={measureTrack} style={styles.sliderBox}>
-          {/* Underlying slider staying fully functional but visually hidden */}
-          <Slider
-            style={styles.slider}
-            minimumValue={-100}
-            maximumValue={100}
-            value={internalValue}
-            onValueChange={(v) => {
-              const nv = Math.round(v);
-              console.log("Slider (drag) value:", nv);
-              setInternalValue(nv);
-              if (onValueChange) onValueChange(nv);
-              maybeSendSteering(nv);
-            }}
-            onSlidingComplete={() => {
-              // Ensure neutral when user releases the slider
-              setInternalValue(0);
-              if (onValueChange) onValueChange(0);
-              maybeSendSteering(0);
-            }}
-            minimumTrackTintColor="transparent"
-            maximumTrackTintColor="transparent"
-            thumbTintColor="transparent"
-            disabled={!device}
-          />
         </View>
       </View>
     </GestureDetector>

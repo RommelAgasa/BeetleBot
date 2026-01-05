@@ -1,7 +1,7 @@
 import { useBleContext } from "@/src/context/BleContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
@@ -9,7 +9,7 @@ import AcceleratorButton from "./components/accelaration";
 import BreakButton from "./components/break";
 import ClawButton from "./components/claw";
 import GearSelector from "./components/gear";
-import SliderReplacement from "./components/SliderReplacement";
+import SteeringWheelSlider from "./components/steering-wheel-slider";
 import style from "./screen-style";
 
 
@@ -36,9 +36,6 @@ export default function Home() {
 
   const [commandMap] = useState({ ...DEFAULT_COMMANDS });
   const [maxSpeed] = useState<number>(100);
-
-  const steeringGestureRef = useRef<any>(undefined);
-  const acceleratorGestureRef = useRef<any>(undefined);
 
   const drivingService = useMemo(() => new DefaultDrivingService(), []);
   const driving = SteeringWheelController({
@@ -73,12 +70,10 @@ export default function Home() {
         <View style={style.row}>
           <View style={style.row2_left_container}>
             {/* Slider controls steering: -100 left, 0 center, 100 right */}
-            <SliderReplacement
+            <SteeringWheelSlider
               device={device}
               value={0}
               onSteeringChange={(angle) => driving.handleSteeringChange(angle)}
-              gestureRef={steeringGestureRef}
-              simultaneousGestureRef={acceleratorGestureRef}
             />
           </View>
 
@@ -112,8 +107,6 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleMaintainSpeed()}
-                    gestureRef={acceleratorGestureRef}
-                    simultaneousGestureRef={steeringGestureRef}
                   />
                 </View>
               </View>
