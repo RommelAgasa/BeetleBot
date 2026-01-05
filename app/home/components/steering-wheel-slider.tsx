@@ -3,19 +3,19 @@ import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Ellipse, Path } from "react-native-svg";
 
-type SliderReplacementProps = {
+type SteeringWheelSliderProps = {
   device: any;
   value: number;
   onValueChange?: (v: number) => void;
   onSteeringChange?: (angle: number) => void | Promise<void>;
 };
 
-export default function SliderReplacement({
+export default function SteeringWheelSlider({
   device,
   value,
   onValueChange,
   onSteeringChange,
-}: SliderReplacementProps) {
+}: SteeringWheelSliderProps) {
   const [internalValue, setInternalValue] = useState<number>(value ?? 0);
   const halfWidthRef = useRef<number>(85);
   const lastSentDirectionKey = useRef<number>(0); // -1 left, 0 center, 1 right

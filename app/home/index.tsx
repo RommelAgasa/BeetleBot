@@ -9,7 +9,7 @@ import AcceleratorButton from "./components/accelaration";
 import BreakButton from "./components/break";
 import ClawButton from "./components/claw";
 import GearSelector from "./components/gear";
-import SliderReplacement from "./components/SliderReplacement";
+import SteeringWheelSlider from "./components/steering-wheel-slider";
 import style from "./screen-style";
 
 
@@ -70,7 +70,7 @@ export default function Home() {
         <View style={style.row}>
           <View style={style.row2_left_container}>
             {/* Slider controls steering: -100 left, 0 center, 100 right */}
-            <SliderReplacement
+            <SteeringWheelSlider
               device={device}
               value={0}
               onSteeringChange={(angle) => driving.handleSteeringChange(angle)}
