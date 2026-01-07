@@ -8,6 +8,7 @@ type AcceleratorButtonProps = {
   handleAccelerate: () => void;
   handleDecelerate: () => void;
   onPedalRelease?: () => void;
+  gestureRef?: React.MutableRefObject<any>;
 };
 
 function AcceleratorButton({
@@ -15,6 +16,7 @@ function AcceleratorButton({
   handleAccelerate,
   handleDecelerate,
   onPedalRelease,
+  gestureRef,
 }: AcceleratorButtonProps) {
   const [accelerating, setAccelerating] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -91,8 +93,12 @@ function AcceleratorButton({
       })
       .enabled(!disabled);
 
+    if (gestureRef) {
+      g = g.withRef(gestureRef);
+    }
+
     return g;
-  }, [disabled, handlePressIn, handlePressOut]);
+  }, [disabled, handlePressIn, handlePressOut, gestureRef]);
 
   return (
     <GestureDetector gesture={pan}>

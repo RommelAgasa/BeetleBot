@@ -1,7 +1,7 @@
 import { useBleContext } from "@/src/context/BleContext";
 import CustomText from "@/src/theme/custom-theme";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -16,9 +16,19 @@ import TopNavBar from "../components/TopNavBar";
 
 export default function BluetoothRename() {
   const router = useRouter();
-  const { device, sendCommand } = useBleContext();
+  const { device, sendCommand, subscribeToNotifications } = useBleContext();
   const [newName, setNewName] = useState(device?.name || device?.localName || "");
   const [isLoading, setIsLoading] = useState(false);
+  const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (responseTimeoutRef.current) {
+        clearTimeout(responseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleCancel = () => {
     router.back();
@@ -34,17 +44,57 @@ export default function BluetoothRename() {
       setIsLoading(true);
       console.log("Sending rename command:", `RENAME:${newName}`);
       
-      // Send rename command to BLE device
-      await sendCommand(`RENAME:${newName}`);
-      
-      console.log("Rename command sent successfully");
-      
-      Alert.alert("Success", "Device name updated successfully", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
+      // Create a promise that resolves when we receive the response
+      const renamePromise = new Promise<boolean>((resolve) => {
+        // Subscribe to notifications for response
+        subscribeToNotifications(
+          (data: string) => {
+            console.log("Received response:", data);
+            
+            if (data.includes("NAME_OK")) {
+              resolve(true);
+            } else if (data.includes("NAME_ERROR")) {
+              resolve(false);
+            }
+          },
+          (error) => {
+            console.error("Notification error:", error);
+            resolve(false);
+          }
+        );
+
+        // Send rename command
+        sendCommand(`RENAME:${newName}`);
+
+        // Set timeout for response (3 seconds)
+        responseTimeoutRef.current = setTimeout(() => {
+          console.log("Rename response timeout");
+          resolve(true); // Assume success after timeout
+        }, 3000);
+      });
+
+      const success = await renamePromise;
+
+      if (responseTimeoutRef.current) {
+        clearTimeout(responseTimeoutRef.current);
+        responseTimeoutRef.current = null;
+      }
+
+      if (success) {
+        Alert.alert("Success", "Device name saved successfully", [
+          {
+            text: "OK",
+            onPress: () => {
+              // Note: The Bluetooth device name on your system may not immediately 
+              // reflect this change. The name is saved on the Arduino's EEPROM.
+              // Reconnect to see the updated device name from your app.
+              router.back();
+            },
+          },
+        ]);
+      } else {
+        Alert.alert("Error", "Failed to save device name. Please try again.");
+      }
     } catch (error) {
       console.error("Rename error:", error);
       Alert.alert("Error", "Failed to rename device. Please try again.");

@@ -9,12 +9,14 @@ type SteeringWheelSliderProps = {
   device: any;
   onValueChange?: (v: number) => void;
   onSteeringChange?: (angle: number) => void | Promise<void>;
+  simultaneousGestureRef?: React.RefObject<any>;
 };
 
 export default function SteeringWheelSlider({
   device,
   onValueChange,
   onSteeringChange,
+  simultaneousGestureRef,
 }: SteeringWheelSliderProps) {
   // Local slider value in range -100 (full left) .. 0 (center) .. 100 (full right)
   const [internalValue, setInternalValue] = useState<number>(0);
@@ -42,7 +44,7 @@ export default function SteeringWheelSlider({
   );
 
   // Pan gesture over the entire wheel; updates internalValue like a virtual slider
-  const panGesture = Gesture.Pan()
+  let panGesture = Gesture.Pan()
     .minDistance(0)
     .hitSlop({ left: 40, right: 40, top: 40, bottom: 40 })
     .onUpdate((event) => {
@@ -66,12 +68,18 @@ export default function SteeringWheelSlider({
       runOnJS(maybeSendSteering)(0);
     });
 
+  if (simultaneousGestureRef) {
+    panGesture = panGesture.simultaneousWithExternalGesture(simultaneousGestureRef);
+  }
+
+  panGesture = panGesture.enabled(!!device);
+
   const clampedAngle = Math.max(-135, Math.min(135, (internalValue / 100) * 135));
 
   return (
     <View style={styles.container}>
       {/* Steering wheel visual + gesture area */}
-      <GestureDetector gesture={device ? panGesture : Gesture.Pan().enabled(false)}>
+      <GestureDetector gesture={panGesture}>
         <View style={styles.overlay}>
           <View
             style={[
