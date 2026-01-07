@@ -121,6 +121,16 @@ export const SteeringWheelController = ({
       await drivingService.sendGearChangeCommand(newGear, commandMap, sendCommand);
       setDriveMode(newGear === "Reverse" ? "reverse" : "forward");
       driveModeRef.current = newGear === "Reverse" ? "reverse" : "forward";
+      
+      // Reset speed when shifting gear
+      setSpeed(0);
+      speedRef.current = 0;
+      
+      // Stop any deceleration interval
+      if (returnIntervalRef.current) {
+        clearInterval(returnIntervalRef.current);
+        returnIntervalRef.current = null;
+      }
     },
     [drivingService, commandMap, sendCommand]
   );

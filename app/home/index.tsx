@@ -1,7 +1,7 @@
 import { useBleContext } from "@/src/context/BleContext";
 import { SteeringWheelController } from "@/src/hooks/SteeringWheelController";
 import { DefaultDrivingService } from "@/src/services/DefaultDrivingService";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import TopNavBar from "../components/TopNavBar";
@@ -46,6 +46,7 @@ export default function Home() {
     drivingService,
   });
   const resetDrivingState = driving.resetDrivingState;
+  const acceleratorGestureRef = useRef<any>(null);
 
   useEffect(() => {
     if (device) {
@@ -72,7 +73,7 @@ export default function Home() {
             {/* Slider controls steering: -100 left, 0 center, 100 right */}
             <SteeringWheelSlider
               device={device}
-              value={0}
+              simultaneousGestureRef={acceleratorGestureRef}
               onSteeringChange={(angle) => driving.handleSteeringChange(angle)}
             />
           </View>
@@ -107,6 +108,7 @@ export default function Home() {
                     device={device}
                     handleAccelerate={() => driving.handleAccelerate()}
                     handleDecelerate={() => driving.handleMaintainSpeed()}
+                    gestureRef={acceleratorGestureRef}
                   />
                 </View>
               </View>

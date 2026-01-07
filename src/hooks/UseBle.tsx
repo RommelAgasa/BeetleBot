@@ -91,6 +91,18 @@ export const useBle = () => {
     [bleService]
   );
 
+  // ---------- SUBSCRIBE TO NOTIFICATIONS ----------
+  const subscribeToNotifications = useCallback(
+    (
+      onNotification: (data: string) => void,
+      onError?: (error: Error) => void
+    ) => {
+      // Subscribe to device responses
+      return bleService.subscribeToNotifications(onNotification, onError);
+    },
+    [bleService]
+  );
+
   // ---------- SYNC BLE EVENTS ----------
   useEffect(() => {
     if (!bleService.device) return;
@@ -129,5 +141,6 @@ export const useBle = () => {
     tryConnectToDevice,
     disconnectDevice,
     sendCommand,
+    subscribeToNotifications,
   };
 };

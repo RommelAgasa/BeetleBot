@@ -364,4 +364,50 @@ export class BleService implements IBleService {
       this.characteristicUUID = null;
       this.charWriteWithResponse = null;
   }
+
+  /**
+   * Subscribes to notifications from a readable characteristic.
+   * Useful for reading responses from the Arduino.
+   * @param onNotification Callback called when data is received
+   * @param onError Optional callback for errors
+   */
+  async subscribeToNotifications(
+    onNotification: (data: string) => void,
+    onError?: (error: Error) => void
+  ) {
+    if (!this.device || !this.serviceUUID || !this.characteristicUUID) {
+      console.warn("Cannot subscribe: device or characteristics not available");
+      return;
+    }
+
+    try {
+      // Subscribe to notifications
+      this.device.monitorCharacteristicForService(
+        this.serviceUUID,
+        this.characteristicUUID,
+        (error, characteristic) => {
+          if (error) {
+            console.error("Notification error:", error);
+            onError?.(error as Error);
+            return;
+          }
+
+          if (characteristic?.value) {
+            try {
+              // Decode from base64 if needed
+              const decoded = atob(characteristic.value);
+              console.log("Received data:", decoded);
+              onNotification(decoded);
+            } catch (decodeError) {
+              console.error("Failed to decode characteristic:", decodeError);
+              onError?.(decodeError as Error);
+            }
+          }
+        }
+      );
+    } catch (error: any) {
+      console.error("Subscribe error:", error?.message || error);
+      onError?.(error);
+    }
+  }
 }
