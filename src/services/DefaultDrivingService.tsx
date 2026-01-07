@@ -186,11 +186,15 @@ export class DefaultDrivingService implements IDrivingService {
 
 
 
-  /** Brake: sends S to stop motors */
+  /** Brake: sends S multiple times to ensure the car stops at high speeds */
   async sendBrakeCommand(
     _commandMap: Record<string, string>,
     sendCommand: (c: string) => Promise<void>
   ): Promise<void> {
+    // Send brake command multiple times to ensure it registers at high speeds
+    // This prevents the car from requiring a double-press to stop
+    await this.sendText(sendCommand, "S");
+    await this.sendText(sendCommand, "S");
     await this.sendText(sendCommand, "S");
   }
 
